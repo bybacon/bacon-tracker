@@ -1,0 +1,29 @@
+# Built gems
+*.gem
+
+# Bundler. A gem does not commit its lockfile - CI resolves against the
+# gemspec so it tests what users actually install.
+/.bundle/
+/vendor/bundle/
+Gemfile.lock
+
+# Write locks - created on demand by every tracker/decision mutation,
+# machine-local and never meaningful in history.
+**/.lock
+
+# Temp files from atomic writes interrupted mid-rename
+**/.*.tmp.*
+
+# Claude Code: symlinked rules/skills point at machine-local paths
+.claude/rules/
+.claude/skills/
+
+# OS and editor noise
+.DS_Store
+*.swp
+*~
+.idea/
+.vscode/
+
+# Node (the JS tests use the built-in runner, but keep stray installs out)
+/node_modules/

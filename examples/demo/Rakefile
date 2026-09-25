@@ -1,0 +1,15 @@
+# Boots the bundled demo tracker so you can try the board with zero setup:
+#
+#   cd examples/demo
+#   rake story:server        # → http://localhost:4567
+#
+# (From a checkout of this repo, prefix with `bundle exec`.)
+require "bacon_tracker"
+require "bacon_tracker/tasks"
+
+BaconTracker.configure do |c|
+  c.namespace = "DEMO"
+  c.tracker_root = File.expand_path("tracker", __dir__)
+end
+
+BaconTracker::Tasks.install

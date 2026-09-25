@@ -1,0 +1,82 @@
+/* The one header (BT-172): dark bar, carrot, theme toggle - shared by the
+   board, the dashboard, the docs browser and the decisions board. */
+header {
+  background: var(--fg-strong);
+  color: var(--bg);
+  padding: 9px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+header h1 {
+  font-size: 0.85rem;
+  font-weight: 400;
+  letter-spacing: -0.5px;
+  color: var(--color-pink);
+}
+.ns {
+  font-size: 0.63rem;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  padding: 1px 7px;
+  border-radius: var(--radius-sm);
+}
+.back-link {
+  color: rgba(255, 227, 240, 0.45);
+  font-size: 0.72rem;
+  text-decoration: none;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 227, 240, 0.18);
+  transition:
+    color 0.12s,
+    border-color 0.12s;
+}
+.back-link:hover {
+  color: var(--color-pink);
+  border-color: rgba(255, 227, 240, 0.45);
+}
+.header-spacer {
+  flex: 1;
+}
+.accent-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.carrot-mark {
+  font-size: 12px;
+  flex-shrink: 0;
+  opacity: 0.45;
+  line-height: 1;
+}
+.header-meta {
+  color: rgba(255, 227, 240, 0.45);
+  font-size: 0.72rem;
+}
+.header-meta a {
+  color: rgba(255, 227, 240, 0.65);
+}
+.theme-toggle {
+  background: none;
+  border: 1px solid rgba(255, 227, 240, 0.18);
+  color: rgba(255, 227, 240, 0.38);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition:
+    color 0.12s,
+    border-color 0.12s;
+}
+.theme-toggle:hover {
+  color: var(--color-pink);
+  border-color: rgba(255, 227, 240, 0.5);
+}
+[data-theme="dark"] header {
+  background: #130f12;
+}

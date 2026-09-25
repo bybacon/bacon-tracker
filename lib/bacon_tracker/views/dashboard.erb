@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bacon Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:ital,wght@0,300;0,400;1,400&display=swap" rel="stylesheet">
+  <script><%= erb :'_theme_boot', layout: false %></script>
+  <style>
+    <%= erb :'_root_css', layout: false %>
+    .project-card {
+      cursor: pointer;
+    }
+    .pcard-actions {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 0.6rem;
+      font-size: 0.78rem;
+    }
+    .pcard-actions a {
+      color: var(--fg-muted);
+      text-decoration: none;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0.15rem 0.55rem;
+    }
+    .pcard-actions a:hover {
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+    .pcard-docsline span + span::before {
+      content: "· ";
+      color: var(--fg-muted);
+    }
+
+    body {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      background: var(--bg);
+      color: var(--fg);
+      min-height: 100dvh;
+    }
+
+    <%= erb :'_header_css', layout: false %>
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+      gap: 14px;
+      padding: 18px 16px;
+      max-width: 1100px;
+    }
+
+    @media (max-width: 600px) {
+      .grid {
+        grid-template-columns: 1fr;
+        padding: 12px;
+        gap: 10px;
+      }
+    }
+
+    .project-card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 14px 16px;
+      border: 1px solid rgba(192, 130, 162, 0.2);
+      border-left: 3px solid var(--accent);
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+      transition:
+        box-shadow 0.15s,
+        transform 0.1s;
+    }
+    .project-card:hover {
+      box-shadow: 0 4px 18px rgba(192, 130, 162, 0.18);
+      transform: translateY(-1px);
+    }
+    .project-card.h-active {
+      border-left-color: #5e8c6a;
+    }
+    .project-card.h-idle {
+      border-left-color: #d47070;
+    }
+    .project-card.h-overload {
+      border-left-color: #b08030;
+    }
+
+    .pcard-top {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .pcard-name {
+      font-size: 0.88rem;
+      color: var(--fg-strong);
+      flex: 1;
+      letter-spacing: -0.5px;
+    }
+    .pcard-ns {
+      font-size: 0.6rem;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      padding: 1px 6px;
+      border-radius: 4px;
+      letter-spacing: 0.08em;
+      flex-shrink: 0;
+    }
+
+    .pcard-progress {
+      height: 3px;
+      background: rgba(192, 130, 162, 0.18);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .pcard-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+    }
+
+    .pcard-counts {
+      display: flex;
+      gap: 10px;
+      font-size: 0.68rem;
+      flex-wrap: wrap;
+    }
+    .ct-done {
+      color: var(--accent);
+    }
+    .ct-icebox {
+      color: var(--fg-muted);
+    }
+    .h-ok {
+      color: #5e8c6a;
+    }
+    .h-warn {
+      color: #b08030;
+    }
+    .h-empty {
+      color: #d47070;
+    }
+
+    .pcard-next {
+      font-size: 0.7rem;
+      color: var(--fg);
+      background: rgba(192, 130, 162, 0.07);
+      border-radius: 4px;
+      padding: 5px 8px;
+      border-left: 2px solid var(--accent);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .next-label {
+      color: var(--accent);
+      margin-right: 4px;
+      font-size: 0.62rem;
+    }
+
+    .empty {
+      grid-column: 1 / -1;
+      text-align: center;
+      color: var(--fg);
+      font-size: 0.85rem;
+      padding: 60px 20px;
+      opacity: 0.6;
+    }
+    .empty code {
+      font-family: var(--font-mono);
+      background: rgba(192, 130, 162, 0.12);
+      padding: 1px 5px;
+      border-radius: 3px;
+      color: var(--accent);
+    }
+
+    /* ── Dark mode (palette lives in _root_css) ─────────────── */
+
+    [data-theme="dark"] .project-card {
+      background: #2a1d26;
+      border-color: rgba(255, 255, 255, 0.08);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="accent-dot"></div>
+    <span class="carrot-mark" aria-hidden="true">🥕</span>
+    <h1>bacon dashboard</h1>
+    <div class="header-spacer"></div>
+    <button class="theme-toggle" title="dark mode">◐</button>
+  </header>
+  <main class="grid">
+    <% if @project_stats.empty? %>
+    <div class="empty">
+      No projects found.<br>
+      Add projects to your <code>dashboard.md</code>.
+    </div>
+    <% else %>
+    <% @project_stats.each do |proj| %>
+    <%
+      hc = if proj[:started] > 2 then 'h-overload'
+           elsif proj[:started] > 0 then 'h-active'
+           elsif proj[:backlog] > 0 then 'h-idle'
+           else '' end
+    %>
+    <%
+      board_href = "/projects/#{proj[:slug]}"
+      docs_href  = "#{board_href}/docs"
+      primary    = proj[:tracker] ? board_href : docs_href
+    %>
+    <div class="project-card <%= hc %>" data-href="<%= primary %>" tabindex="0" role="link">
+      <div class="pcard-top">
+        <span class="pcard-name"><%= h proj[:name] %></span>
+        <span class="pcard-ns"><%= h proj[:namespace] %><% if proj[:version] %> · v<%= h proj[:version] %><% end %></span>
+      </div>
+      <% if proj[:tracker] %>
+      <div class="pcard-progress">
+        <div class="pcard-fill" style="width: <%= proj[:progress_pct] %>%"></div>
+      </div>
+      <div class="pcard-counts">
+        <% if proj[:done]    > 0 %><span class="ct-done"><%= proj[:done] %> done</span><% end %>
+        <% if proj[:started] > 0 %><span class="<%= proj[:started] <= 2 ? 'h-ok' : 'h-warn' %>"><%= proj[:started] %> started</span><% end %>
+        <% if proj[:backlog] > 0 %><span class="<%= proj[:backlog] <= 5 ? 'h-ok' : 'h-warn' %>"><%= proj[:backlog] %> backlog</span><% end %>
+        <% if proj[:icebox]  > 0 %><span class="ct-icebox"><%= proj[:icebox] %> icebox</span><% end %>
+      </div>
+      <% if proj[:next_task] && !proj[:next_task].empty? %>
+      <div class="pcard-next"><span class="next-label">next:</span><%= h proj[:next_task] %></div>
+      <% end %>
+      <% else %>
+      <div class="pcard-counts pcard-docsline">
+        <span><%= proj[:pages] %> pages</span>
+        <span><%= proj[:decisions] %> decisions</span>
+        <% if proj[:proposed] > 0 %><span class="h-warn"><%= proj[:proposed] %> proposed</span><% end %>
+      </div>
+      <% end %>
+      <%
+        actions = []
+        actions << ["open tracker", board_href] if proj[:tracker]
+        actions << ["open docs", docs_href]     if proj[:docs]
+        actions << ["open adrs", "#{docs_href}/decisions"] if proj[:docs] && proj[:decisions].to_i > 0
+      %>
+      <% if actions.size > 1 %>
+      <div class="pcard-actions">
+        <% actions.each do |label, href| %><a href="<%= href %>"><%= label %></a><% end %>
+      </div>
+      <% end %>
+    </div>
+    <% end %>
+    <% end %>
+  </main>
+  <script>
+    // The card is a div (nested anchors are invalid HTML), so whole-card click
+    // navigates to the primary surface; clicks on an inner action win (BT-138).
+    document.querySelector('.grid').addEventListener('click', (e) => {
+      if (e.target.closest('a')) return;
+      const card = e.target.closest('.project-card[data-href]');
+      if (card) window.location = card.dataset.href;
+    });
+    // role="link" promises Enter; Space too, as for a button-like card.
+    document.querySelector('.grid').addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const card = e.target.closest('.project-card[data-href]');
+      if (!card || e.target !== card) return;
+      e.preventDefault();
+      window.location = card.dataset.href;
+    });
+  </script>
+  <script src="/theme.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      initTheme();
+      document.querySelector('.theme-toggle').addEventListener('click', toggleTheme);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= h @doc_title %> - decisions</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:ital,wght@0,300;0,400;1,400&display=swap" rel="stylesheet">
+  <script><%= erb :'_theme_boot', layout: false %></script>
+  <style>
+    <%= erb :'_root_css', layout: false %>
+    <%= erb :'_header_css', layout: false %>
+    <%= erb :'_board_css', layout: false %>
+    <%= erb :'_detail_css', layout: false %>
+    <%= erb :'_markdown_css', layout: false %>
+    html,
+    body {
+      height: 100%;
+    }
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      font-family: var(--font-mono);
+      display: flex;
+      flex-direction: column;
+    }
+    .board {
+      min-height: 0;
+    }
+
+    /* data-status colours (BT-144): proposed wants attention, accepted is in
+           force, rejected reads as the bug colour, history fades. data-stage stays
+           the story board's; the two never meet in one board. */
+    .column[data-status="proposed"] {
+      background: rgba(192, 130, 162, 0.1);
+      border-color: rgba(192, 130, 162, 0.22);
+    }
+    .column[data-status="accepted"] {
+      background: rgba(80, 140, 100, 0.08);
+      border-color: rgba(80, 140, 100, 0.18);
+    }
+    .column[data-status="rejected"] {
+      background: rgba(212, 112, 112, 0.08);
+      border-color: rgba(212, 112, 112, 0.18);
+    }
+    .column[data-status="deprecated"],
+    .column[data-status="superseded"] {
+      background: rgba(195, 195, 195, 0.1);
+      border-color: rgba(195, 195, 195, 0.22);
+    }
+    .column[data-status="proposed"] .col-header h2 {
+      color: var(--accent);
+    }
+    .column[data-status="accepted"] .col-header h2 {
+      color: #5e8c6a;
+    }
+    .column[data-status="rejected"] .col-header h2 {
+      color: var(--c-bug);
+    }
+    .column[data-status="deprecated"] .col-header h2,
+    .column[data-status="superseded"] .col-header h2 {
+      color: var(--fg-muted);
+    }
+
+    .dcard {
+      padding: 8px 10px;
+    }
+    .dcard .card-id {
+      font-size: 0.62rem;
+      color: var(--fg-muted);
+      display: flex;
+      gap: 6px;
+    }
+    .dcard .card-id .d-date {
+      margin-left: auto;
+    }
+    .dcard .d-title {
+      font-size: 0.78rem;
+      color: var(--fg-strong);
+      margin-top: 3px;
+      word-break: break-word;
+    }
+    .dcard .d-succ {
+      font-size: 0.64rem;
+      margin-top: 4px;
+    }
+    .dcard .d-succ a {
+      color: var(--accent);
+      cursor: pointer;
+    }
+    .dcard-reveal {
+      visibility: hidden;
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--fg-muted);
+      cursor: pointer;
+      padding: 0 0.35rem;
+      font-size: 0.7rem;
+      margin-left: 6px;
+    }
+    .dcard:hover .dcard-reveal {
+      visibility: visible;
+    }
+    .dcard-reveal:hover {
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+    .card {
+      cursor: pointer;
+    }
+    .col-toggle {
+      background: none;
+      border: none;
+      color: var(--fg-muted);
+      cursor: pointer;
+      font-family: var(--font-mono);
+      font-size: 0.6rem;
+    }
+    .card {
+      cursor: grab;
+    }
+    .board-flash {
+      position: fixed;
+      bottom: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--c-bug);
+      color: #fff;
+      padding: 0.5rem 0.9rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.78rem;
+      z-index: 200;
+      max-width: 80%;
+    }
+    .board-flash.info {
+      background: var(--accent);
+    }
+    .picker-cand {
+      display: block;
+      width: 100%;
+      text-align: left;
+      margin: 0.2rem 0;
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--fg-strong);
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      padding: 0.35rem 0.6rem;
+      cursor: pointer;
+    }
+    .picker-cand:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    #picker-free {
+      width: 100%;
+      margin-top: 0.6rem;
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-input);
+      color: var(--fg);
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      padding: 0.35rem 0.6rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <a href="/" class="back-link">← <%= @doc_slug ? "dashboard" : "board" %></a>
+    <span class="carrot-mark" aria-hidden="true">🥕</span>
+    <h1><%= h @doc_title %></h1>
+    <span class="ns">decisions</span>
+    <div class="header-spacer"></div>
+    <button class="theme-toggle" title="dark mode">◐</button>
+  </header>
+  <main class="board" id="decision-board"></main>
+  <div class="detail-backdrop" id="doc-detail">
+    <div class="detail-modal">
+      <div class="detail-head">
+        <span class="detail-id" id="doc-detail-path"></span>
+        <span class="detail-stage" id="doc-detail-status" title="Current status"></span>
+        <span class="detail-id" id="doc-detail-refs"></span>
+        <button class="detail-close" id="doc-detail-close" title="Close">✕</button>
+      </div>
+      <div class="detail-title" id="doc-detail-title"></div>
+      <div class="detail-body md-content" id="doc-detail-body"></div>
+    </div>
+  </div>
+  <div class="detail-backdrop" id="supersede-picker">
+    <div class="detail-modal">
+      <div class="detail-head">
+        <span class="detail-id">supersede <span id="picker-subject"></span></span>
+        <button class="detail-close" id="picker-cancel" title="Cancel">✕</button>
+      </div>
+      <div class="detail-title">Which decision supersedes it?</div>
+      <div class="detail-body">
+        <div id="picker-list"></div>
+        <input id="picker-free" placeholder="…or an id in another namespace, then ⏎">
+      </div>
+    </div>
+  </div>
+  <script src="/theme.js"></script>
+  <% if @doc_slug %><script>window.BT_API_BASE = <%= "/projects/#{@doc_slug}".to_json %>;</script><% end %>
+  <script src="/logic.js"></script>
+  <script src="/decisions.js"></script>
+</body>
+</html>

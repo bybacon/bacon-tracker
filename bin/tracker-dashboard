@@ -1,0 +1,47 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "optparse"
+
+options = { port: 4567 }
+OptionParser.new do |opts|
+  opts.banner = "Usage: tracker-dashboard [options]"
+  opts.on("--path PATH", "--dashboard PATH", "Path to dashboard.md") { |v| options[:dashboard] = v }
+  opts.on("--port PORT", Integer, "Port (default: 4567)") { |v| options[:port] = v }
+  opts.on("-h", "--help", "Show this help") { puts opts; exit }
+end.parse!
+
+dashboard_path = options[:dashboard] ||
+                 ENV.fetch("DASHBOARD", nil) ||
+                 File.join(Dir.pwd, "dashboard.md")
+
+unless File.exist?(dashboard_path)
+  warn "dashboard.md not found at #{dashboard_path}"
+  warn ""
+  warn "Create it like this:"
+  warn ""
+  warn "  ## My Project"
+  warn "  path: /path/to/my-project"
+  warn "  namespace: MYP"
+  warn ""
+  warn "or run tracker-init, which writes it for you."
+  exit 1
+end
+
+require "bacon_tracker"
+require "bacon_tracker/dashboard"
+require "bacon_tracker/server"
+
+dashboard = BaconTracker::Dashboard.new(dashboard_path)
+
+if dashboard.projects.empty?
+  warn "No projects found in #{dashboard_path}"
+  exit 1
+end
+
+port = options[:port]
+$stdout.sync = true
+puts "Bacon Dashboard running at http://localhost:#{port}"
+puts "Projects: #{dashboard.projects.map(&:name).join(", ")}"
+puts "Ctrl-C to stop."
+BaconTracker::Server.boot_dashboard(dashboard).run!(port: port, bind: "localhost", quiet: true)

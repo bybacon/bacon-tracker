@@ -1,0 +1,7 @@
+projectDirectory          = "$CWD"
+include                   = {*,.tm_properties,.github,.rspec,.rubocop.yml,.rubocop_todo.yml,.ruby-version,.yardopts,.dockerignore}
+excludeInFolderSearch     = "{$excludeInFolderSearch,$extraExcludes,log,tmp,meta,public}"
+excludeInFileChooser      = "{$excludeInFileChooser,log,tmp,meta,public}"
+
+[ attr.untitled ]
+fileType                  = source.ruby

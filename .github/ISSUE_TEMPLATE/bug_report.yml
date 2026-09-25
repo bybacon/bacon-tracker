@@ -1,0 +1,49 @@
+name: Bug report
+description: Something in bacon-tracker does not work as documented.
+labels: [bug]
+body:
+  - type: textarea
+    id: currently
+    attributes:
+      label: What happens
+      description: What you see now. Paste error output as text.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The commands you ran or what you did on the board. A small example tracker helps.
+      placeholder: |
+        1. NS=APP rake "story:feature[Example]"
+        2. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where
+      options:
+        - Rake tasks
+        - Board
+        - Dashboard
+        - Docs browser or decisions board
+        - tracker-init or tracker-dashboard
+        - /tracker command
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Output of `gem list bacon-tracker` and `ruby -v`, plus your OS.
+      placeholder: bacon-tracker 1.0.0, ruby 3.4.7, macOS 15
+    validations:
+      required: true

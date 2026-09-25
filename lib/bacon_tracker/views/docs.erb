@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= h @doc_title %> - docs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:ital,wght@0,300;0,400;1,400&display=swap" rel="stylesheet">
+  <script><%= erb :'_theme_boot', layout: false %></script>
+  <style>
+    <%= erb :'_root_css', layout: false %>
+    <%= erb :'_header_css', layout: false %>
+    html,
+    body {
+      height: 100%;
+    }
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      font-family: var(--font-mono);
+      display: flex;
+      flex-direction: column;
+    }
+    .docs-main {
+      flex: 1;
+      min-height: 0;
+      padding: 1rem 1.2rem;
+      display: flex;
+    }
+    a {
+      color: var(--accent);
+    }
+    .docs-layout {
+      display: flex;
+      gap: 0;
+      flex: 1;
+      min-height: 0;
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-card);
+      overflow: hidden;
+    }
+    /* flex-shrink 0: the container must never shrink below its columns -
+           that clipped the 220px column to ~150px behind a scrollbar (BT-173). */
+    #doc-columns {
+      display: flex;
+      overflow-x: auto;
+      flex: 0 0 auto;
+      max-width: 55%;
+    }
+    .doc-col {
+      list-style: none;
+      min-width: 220px;
+      max-width: 320px;
+      overflow-y: auto;
+      border-right: 1px solid var(--border);
+      padding: 0.4rem 0;
+    }
+    .doc-entry {
+      padding: 0.3rem 0.7rem;
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-size: 0.85rem;
+    }
+    .doc-entry:hover {
+      color: var(--fg-strong);
+    }
+    .doc-entry.selected {
+      background: var(--accent);
+      color: var(--color-pink);
+    }
+    [data-theme="dark"] .doc-entry.selected {
+      color: var(--color-grey-dark);
+    }
+    #doc-preview {
+      flex: 1 1 auto;
+      overflow: auto;
+      padding: 1rem 1.6rem;
+      font-size: 0.88rem;
+      line-height: 1.55;
+    }
+    <%= erb :'_markdown_css', layout: false %>
+    .doc-notice {
+      color: var(--c-bug);
+    }
+    .doc-flash {
+      position: fixed;
+      bottom: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--c-bug);
+      color: #fff;
+      padding: 0.5rem 0.9rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.78rem;
+      z-index: 200;
+      max-width: 80%;
+    }
+    #doc-search {
+      background: none;
+      border: 1px solid rgba(255, 227, 240, 0.18);
+      border-radius: var(--radius-input);
+      color: var(--color-pink);
+      width: 190px;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      padding: 2px 8px;
+    }
+    #doc-search::placeholder {
+      color: rgba(255, 227, 240, 0.35);
+    }
+    #doc-search:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .search-hit {
+      padding: 0.35rem 0.2rem;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border);
+    }
+    .search-hit:hover .sh-path {
+      color: var(--accent);
+    }
+    .sh-folder {
+      color: var(--fg-muted);
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin: 0.9rem 0 0.2rem;
+    }
+    .sh-path {
+      color: var(--fg-strong);
+      font-size: 0.8rem;
+    }
+    .sh-line {
+      color: var(--fg-muted);
+      font-size: 0.76rem;
+    }
+    .sh-line mark {
+      background: var(--accent);
+      color: var(--color-pink);
+      border-radius: 2px;
+    }
+    <%= erb :'_detail_css', layout: false %>
+    /* A slim bar above the content instead of buttons floating over it -
+           the hover overlay sat on top of the first lines of text (BT-174). */
+    .doc-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.35rem;
+      padding: 0.35rem 0.7rem;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .doc-expand {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--fg-muted);
+      cursor: pointer;
+      padding: 0.1rem 0.45rem;
+    }
+    .doc-expand:hover {
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+    #doc-preview-wrap {
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+    .doc-fm {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0.5rem 0.8rem;
+      margin-bottom: 0.9rem;
+      font-size: 0.78rem;
+    }
+    .doc-fm dt {
+      color: var(--fg-muted);
+      display: inline;
+    }
+    .doc-fm dd {
+      display: inline;
+      margin: 0 0.9rem 0 0.3rem;
+      color: var(--fg-strong);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <a href="/" class="back-link">← <%= @doc_slug ? "dashboard" : "board" %></a>
+    <span class="carrot-mark" aria-hidden="true">🥕</span>
+    <h1><%= h @doc_title %></h1>
+    <span class="ns">docs</span>
+    <span id="doc-version" class="header-meta"></span>
+    <a id="doc-changelog" class="header-meta" style="display:none;cursor:pointer">changelog</a>
+    <div class="header-spacer"></div>
+    <input id="doc-search" placeholder="search docs…" autocomplete="off">
+    <button class="theme-toggle" title="dark mode">◐</button>
+  </header>
+  <main class="docs-main">
+  <div class="docs-layout">
+    <div id="doc-columns"></div>
+    <div id="doc-preview-wrap">
+      <div class="doc-actions">
+        <button class="doc-expand" id="doc-editor" title="Open in editor">✎</button>
+        <button class="doc-expand" id="doc-reveal" title="Reveal the file">↗</button>
+        <button class="doc-expand" id="doc-expand" title="Open detail view">⤢</button>
+      </div>
+      <div id="doc-preview" class="md-content"></div>
+    </div>
+  </div>
+  <div class="detail-backdrop" id="doc-detail">
+    <div class="detail-modal">
+      <div class="detail-head">
+        <span class="detail-id" id="doc-detail-path"></span>
+        <button class="detail-close" id="doc-detail-close" title="Close">✕</button>
+      </div>
+      <div class="detail-title" id="doc-detail-title"></div>
+      <div class="detail-body md-content" id="doc-detail-body"></div>
+    </div>
+  </div>
+  </main>
+  <% if @doc_slug %><script>window.BT_API_BASE = <%= "/projects/#{@doc_slug}".to_json %>;</script><% end %>
+  <script src="/theme.js"></script>
+  <script src="/logic.js"></script>
+  <script src="/docs.js"></script>
+</body>
+</html>

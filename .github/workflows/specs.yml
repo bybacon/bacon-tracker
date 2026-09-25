@@ -1,0 +1,82 @@
+name: Specs
+
+# Runs on pull requests and pushes to main. publish.yml also calls it as the
+# gate before a release tag is published to RubyGems.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_call:
+
+permissions:
+  contents: read
+
+# A new push to a pull request cancels the run it replaces. Runs on main and
+# release runs are never cancelled.
+concurrency:
+  group: specs-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  spec:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        ruby: ["3.3", "3.4", "4.0"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1.327.0
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+      - run: bundle exec rspec
+
+  tracker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1.327.0
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+      # The project's own stories, in docs/tracker. Findings annotate the diff.
+      - name: Lint the stories
+        run: bundle exec rake story:lint
+        env:
+          LINT_FORMAT: github
+      - name: Lint the decision records
+        run: bundle exec rake decision:lint
+
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1.327.0
+        with:
+          ruby-version: "3.4"
+      # Catches gemspec problems in review instead of at release time.
+      - name: Build the gem without warnings
+        run: |
+          gem build bacon-tracker.gemspec 2>&1 | tee build.log
+          if grep -q "WARNING" build.log; then
+            echo "::error::gem build printed warnings" >&2
+            exit 1
+          fi
+
+  js:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+      - name: Syntax-check client assets
+        run: for f in lib/bacon_tracker/assets/*.js; do node --check "$f"; done
+      - name: JS unit tests
+        run: node --test spec/js/*.test.js

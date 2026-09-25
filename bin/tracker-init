@@ -1,0 +1,267 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "optparse"
+require "fileutils"
+require "bacon_tracker"
+
+# ── CLI options ───────────────────────────────────────────────────────────────
+
+options = {}
+OptionParser.new do |opts|
+  opts.banner = <<~BANNER
+    Usage: tracker-init [options]
+
+    Creates tracker/ and docs/decisions/ inside a project directory and
+    registers the project in your dashboard.md.
+
+  BANNER
+  opts.on("--path PATH",      "Project directory (tracker/ and docs/decisions/ are created inside)") { |v| options[:path] = v }
+  opts.on("--namespace NS",   "Story ID prefix - 2-8 letters/digits starting with a letter, e.g. APP") { |v| options[:namespace] = v }
+  opts.on("--title TITLE",    "Project title (default: from the directory name)")  { |v| options[:title] = v }
+  opts.on("--dashboard PATH", "Path to dashboard.md (default: ./dashboard.md)")   { |v| options[:dashboard] = v }
+  opts.on("--command",        "Also install the /tracker Claude Code command")    { options[:command] = true }
+  opts.on("-y", "--yes",      "Non-interactive: no prompts, defaults for anything not given") { options[:yes] = true }
+  opts.on("-h", "--help",     "Show this help")                                     { puts opts; exit }
+end.parse!
+OPTIONS_YES = options[:yes]
+
+# ── Interactive prompts ───────────────────────────────────────────────────────
+
+def prompt(label, default: nil, required: false)
+  # --yes means no prompts at all: take the default, or fail with the flag to
+  # pass - never block a script on stdin (BT-179).
+  if OPTIONS_YES
+    return default if default
+
+    warn "  Error: #{label} is required - pass it as a flag with --yes."
+    exit 1
+  end
+
+  if default
+    print "  #{label} [#{default}]: "
+  else
+    print "  #{label}: "
+  end
+  $stdout.flush
+  val = $stdin.gets&.chomp
+  val = nil if val&.empty?
+  result = val || default
+  if required && (result.nil? || result.empty?)
+    warn "  Error: #{label} is required."
+    exit 1
+  end
+  result
+end
+
+puts
+puts "  tracker-init - initialize a new tracker project"
+puts "  " + ("─" * 44)
+puts
+
+path = options[:path] ||
+  prompt("Project directory (tracker/ goes here)", required: true)
+path = File.expand_path(path)
+
+namespace = options[:namespace] ||
+  prompt("Namespace (2-8 letters/digits, e.g. APP)", required: true)
+namespace = namespace.strip.upcase
+# Validate rather than rewrite: silently turning B2B into BB or bacon-tracker
+# into BACO registered a namespace the user never chose (BT-179). Digits are
+# fine - the core sorts on the trailing number (BT-104).
+unless namespace.match?(/\A[A-Z][A-Z0-9]{1,7}\z/)
+  warn "  Error: namespace must be 2-8 characters, a letter followed by letters or digits (got #{namespace.inspect})."
+  exit 1
+end
+
+default_title = File.basename(path).gsub(/[-_]/, ' ').split.map(&:capitalize).join(' ')
+title = options[:title] ||
+  prompt("Project title", default: default_title, required: true)
+
+default_dashboard = File.join(Dir.pwd, 'dashboard.md')
+dashboard_path = options[:dashboard] ||
+  prompt("dashboard.md location", default: default_dashboard)
+dashboard_path = File.expand_path(dashboard_path)
+
+tracker_root   = File.join(path, 'tracker')
+dashboard_dir  = File.dirname(dashboard_path)
+
+# ── Collision check (before creating anything) ────────────────────────────────
+# Refuse a namespace/path already registered in dashboard.md up front, so a
+# collision can't leave an orphaned, unregistered tracker whose summary then
+# tells the user to run NS=<ns> commands that target a different project (BT-109).
+if File.exist?(dashboard_path)
+  existing = File.read(dashboard_path, encoding: 'utf-8')
+  if existing.match?(/^namespace: #{Regexp.escape(namespace)}$/)
+    warn "  Error: namespace #{namespace} is already registered in #{dashboard_path}."
+    exit 1
+  elsif existing.match?(/^path: (#{Regexp.escape(path)}|#{Regexp.escape(tracker_root)})$/)
+    warn "  Error: #{path} is already registered in #{dashboard_path}."
+    exit 1
+  end
+end
+
+# ── Confirm ───────────────────────────────────────────────────────────────────
+
+puts
+puts "  Ready to create:"
+puts "    Tracker:   #{tracker_root}"
+puts "    Namespace: #{namespace}"
+puts "    Title:     #{title}"
+puts "    Dashboard: #{dashboard_path}"
+puts "    /tracker:  #{options[:command] ? 'install Claude command' : 'skipped (pass --command to install)'}"
+puts
+
+unless options[:yes]
+  print "  Proceed? [Y/n]: "
+  $stdout.flush
+  answer = $stdin.gets&.chomp.to_s.strip.downcase
+  if answer.start_with?('n', 'q')   # 'n', 'no', 'q', 'quit' all cancel
+    puts "  Cancelled."
+    exit 0
+  end
+end
+
+# ── Directory structure ───────────────────────────────────────────────────────
+
+puts
+puts "  Creating tracker structure..."
+
+BaconTracker::STORY_DIRS.each do |type_dir, meta|
+  ext = meta[:ext]
+
+  BaconTracker::STAGES.each do |stage|
+    dir = File.join(tracker_root, type_dir, stage)
+    FileUtils.mkdir_p(dir)
+    gitkeep = File.join(dir, '.gitkeep')
+    File.write(gitkeep, '') unless File.exist?(gitkeep)
+    puts "    tracker/#{type_dir}/#{stage}/"
+  end
+
+  template_path = File.join(tracker_root, type_dir, "_template#{ext}")
+  unless File.exist?(template_path)
+    File.write(template_path, BaconTracker::Templates.for(ext, meta[:type]))
+    puts "    tracker/#{type_dir}/_template#{ext}"
+  end
+end
+
+# Every mutation takes a flock on <root>/.lock. It is machine-local state, so
+# each root ignores its own rather than relying on the host repo's .gitignore.
+def ignore_lock(root)
+  ignore = File.join(root, '.gitignore')
+  return if File.exist?(ignore)
+
+  File.write(ignore, ".lock\n")
+  puts "    #{File.basename(root)}/.gitignore"
+end
+ignore_lock(tracker_root)
+
+# .next-id
+next_id_path = File.join(tracker_root, '.next-id')
+unless File.exist?(next_id_path)
+  File.write(next_id_path, '1')
+  puts "    tracker/.next-id"
+end
+
+# backlog.md
+backlog_path = File.join(tracker_root, 'backlog.md')
+unless File.exist?(backlog_path)
+  File.write(backlog_path, "# #{title} Backlog\n\n")
+  puts "    tracker/backlog.md"
+end
+
+# ── Decisions (BT-ADR-0014) ───────────────────────────────────────────────────
+# Scaffolded beside the tracker so the contract applies to something from day
+# one. `.next-id` is written eagerly rather than on first use because it is what
+# marks a tracked subtree (BT-ADR-0016); a lazily-created marker is unreliable.
+decisions_root = File.join(path, 'docs', 'decisions')
+unless Dir.exist?(decisions_root)
+  puts "  decisions:"
+  BaconTracker::STATUSES.each do |status|
+    FileUtils.mkdir_p(File.join(decisions_root, status))
+    FileUtils.touch(File.join(decisions_root, status, '.gitkeep'))
+    puts "    docs/decisions/#{status}/"
+  end
+
+  File.write(File.join(decisions_root, '_template.md'), BaconTracker::Templates::DECISION)
+  File.write(File.join(decisions_root, '.next-id'), '1')
+  File.write(File.join(decisions_root, 'proposed.md'), "# Decisions to make, in order\n\n")
+  puts "    docs/decisions/_template.md"
+  puts "    docs/decisions/.next-id"
+  puts "    docs/decisions/proposed.md"
+  ignore_lock(decisions_root)
+end
+
+# ── Register in dashboard.md ──────────────────────────────────────────────────
+
+puts
+# `path:` is the project directory; tracker/ and docs/ are found inside it
+# (BT-ADR-0016). Pointing it at tracker/ itself is the older form, still read.
+entry = "\n## #{title}\npath: #{path}\nnamespace: #{namespace}\n"
+
+# A namespace/path collision already aborted above, so registration is a plain
+# append (or first-time create).
+if File.exist?(dashboard_path)
+  File.open(dashboard_path, 'a') { |f| f.write(entry) }
+  puts "  Registered in #{dashboard_path}"
+else
+  FileUtils.mkdir_p(dashboard_dir)
+  File.write(dashboard_path, "# Bacon Dashboard\n#{entry}")
+  puts "  Created #{dashboard_path}"
+end
+
+# ── Rakefile in dashboard home ────────────────────────────────────────────────
+
+rakefile_path = File.join(dashboard_dir, 'Rakefile')
+unless File.exist?(rakefile_path)
+  File.write(rakefile_path, <<~RUBY)
+    # Bacon Tracker - central Rakefile
+    # Run from this directory with NS=<namespace> rake story:<command>
+    #
+    # Examples:
+    # Quote the task: zsh (the macOS default) treats [ ] as a glob.
+    #
+    #   NS=#{namespace} rake "story:feature[My feature title]"
+    #   NS=#{namespace} rake "story:bug[Broken thing]"
+    #   NS=#{namespace} rake "story:chore[Update deps]"
+    #   NS=#{namespace} rake "story:commit[#{namespace}-001]"
+    #   NS=#{namespace} rake "story:start[#{namespace}-001]"
+    #   NS=#{namespace} rake "story:done[#{namespace}-001]"
+    #   NS=#{namespace} rake story:next
+    #   NS=#{namespace} rake story:lint
+    #   NS=#{namespace} rake "decision:new[Use Postgres]"
+
+    require 'bacon_tracker'
+    require 'bacon_tracker/tasks'
+
+    BaconTracker::Tasks.install_for_dashboard(File.join(__dir__, '#{File.basename(dashboard_path)}'))
+  RUBY
+  puts "  Created #{rakefile_path}"
+end
+
+# ── /tracker Claude command (opt-in) ──────────────────────────────────────────
+
+if options[:command]
+  command_source = File.join(BaconTracker::COMMANDS_DIR, 'tracker.md')
+  command_target = File.join(dashboard_dir, '.claude', 'commands', 'tracker.md')
+  if File.exist?(command_target)
+    puts "  #{command_target} already exists - skipping."
+  else
+    FileUtils.mkdir_p(File.dirname(command_target))
+    FileUtils.cp(command_source, command_target)
+    puts "  Installed /tracker command at #{command_target}"
+  end
+end
+
+# ── Summary ───────────────────────────────────────────────────────────────────
+
+puts
+puts "  Done! Next steps:"
+puts
+puts "    cd #{dashboard_dir}"
+puts "    NS=#{namespace} rake \"story:feature[My first feature]\""
+puts
+puts "  Or start the dashboard server:"
+puts
+puts "    tracker-dashboard --dashboard #{dashboard_path}"
+puts

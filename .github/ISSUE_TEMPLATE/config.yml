@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/bybacon/bacon-tracker/security/policy
+    about: Please report security problems privately, not as an issue.
+  - name: Troubleshooting guide
+    url: https://github.com/bybacon/bacon-tracker/blob/main/docs/troubleshooting.md
+    about: Common setup and server problems, and what to do about them.

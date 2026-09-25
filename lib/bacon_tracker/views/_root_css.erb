@@ -1,0 +1,41 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --color-pink: #ffe3f0;
+  --color-dusty-rose: #c082a2;
+  --color-warm-grey: #5d5d5d;
+  --color-grey-light: #c3c3c3;
+  --color-grey-dark: #1d1d1d;
+
+  --bg: var(--color-pink);
+  --fg: var(--color-warm-grey);
+  --fg-strong: var(--color-grey-dark);
+  --fg-muted: #7a7080;
+  --accent: var(--color-dusty-rose);
+  --border: rgba(195, 195, 195, 0.55);
+
+  --font-mono: "Source Code Pro", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+
+  --c-feature: #c082a2;
+  --c-bug: #d47070;
+  --c-chore: #6b90a0;
+
+  --radius-card: 12px;
+  --radius-sm: 6px;
+  --radius-input: 5px;
+}
+
+/* Shared dark palette - page-specific dark rules stay in each template. */
+[data-theme="dark"] {
+  --bg: #1c1218;
+  --fg: #bfb0bc;
+  --fg-strong: #e8dde5;
+  --fg-muted: #7a6b77;
+  --border: rgba(255, 255, 255, 0.1);
+}

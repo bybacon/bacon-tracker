@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bacon Tracker - <%= h(@project_name || @namespace) %></title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:ital,wght@0,300;0,400;1,400&display=swap" rel="stylesheet">
+  <script><%= erb :'_theme_boot', layout: false %></script>
+  <style>
+    <%= erb :'_root_css', layout: false %>
+    <%= erb :'_board_css', layout: false %>
+
+    body {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      background: var(--bg);
+      color: var(--fg);
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────── */
+
+    <%= erb :'_header_css', layout: false %>
+
+    .reveal-link {
+      background: none;
+      border: 1px solid rgba(255, 227, 240, 0.18);
+      color: rgba(255, 227, 240, 0.4);
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition:
+        color 0.12s,
+        border-color 0.12s;
+    }
+    .reveal-link:hover {
+      color: var(--color-pink);
+      border-color: rgba(255, 227, 240, 0.5);
+    }
+
+    /* ── Next bar ────────────────────────────────────────────────── */
+
+    .next-bar {
+      background: rgba(192, 130, 162, 0.1);
+      border-bottom: 1px solid rgba(192, 130, 162, 0.22);
+      padding: 6px 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.73rem;
+      flex-shrink: 0;
+    }
+    .next-label {
+      color: var(--accent);
+      font-size: 0.62rem;
+      letter-spacing: 0.05em;
+      flex-shrink: 0;
+    }
+    .next-title {
+      color: var(--fg-strong);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+    }
+
+    .load-error {
+      background: rgba(212, 112, 112, 0.12);
+      border-bottom: 1px solid rgba(212, 112, 112, 0.3);
+      padding: 6px 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.73rem;
+      color: var(--c-bug);
+      flex-shrink: 0;
+    }
+    .load-error button {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      color: var(--c-bug);
+      background: none;
+      border: 1px solid rgba(212, 112, 112, 0.4);
+      border-radius: var(--radius-input);
+      padding: 1px 8px;
+      cursor: pointer;
+    }
+    .load-error button:hover {
+      background: rgba(212, 112, 112, 0.12);
+    }
+
+    /* ── Board ───────────────────────────────────────────────────── */
+
+    .column[data-stage="1_icebox"] {
+      background: rgba(107, 144, 160, 0.09);
+      border-color: rgba(107, 144, 160, 0.2);
+    }
+    .column[data-stage="2_backlog"] {
+      background: rgba(192, 130, 162, 0.1);
+      border-color: rgba(192, 130, 162, 0.22);
+    }
+    .column[data-stage="3_started"] {
+      background: rgba(80, 140, 100, 0.08);
+      border-color: rgba(80, 140, 100, 0.18);
+    }
+    .column[data-stage="4_done"] {
+      background: rgba(195, 195, 195, 0.1);
+      border-color: rgba(195, 195, 195, 0.22);
+    }
+    .column.drop-target {
+      background: rgba(192, 130, 162, 0.2) !important;
+      border-color: var(--accent) !important;
+    }
+
+    /* Collapse and pagination are column mechanics, not done-column mechanics -
+           the decisions board reuses them on its historical status columns
+           (BT-137/BT-144). Only the client decides which columns get the class;
+           today that is 4_done alone, so this de-scope changes nothing visible. */
+
+    /* ── Col header ──────────────────────────────────────────────── */
+
+    .column[data-stage="1_icebox"] .col-header h2 {
+      color: var(--c-chore);
+    }
+    .column[data-stage="2_backlog"] .col-header h2 {
+      color: var(--accent);
+    }
+    .column[data-stage="3_started"] .col-header h2 {
+      color: #5e8c6a;
+    }
+    .column[data-stage="4_done"] .col-header h2 {
+      color: var(--fg-muted);
+    }
+
+    .column[data-stage="1_icebox"] .col-sublabel {
+      color: var(--c-chore);
+    }
+    .column[data-stage="2_backlog"] .col-sublabel {
+      color: var(--accent);
+    }
+
+    .col-right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .count {
+      font-size: 0.62rem;
+      color: var(--fg-muted);
+      background: rgba(192, 130, 162, 0.12);
+      padding: 1px 6px;
+      border-radius: 10px;
+    }
+
+    .btn-add,
+    .btn-collapse {
+      background: none;
+      border: 1px solid rgba(195, 195, 195, 0.65);
+      color: var(--fg-muted);
+      width: 20px;
+      height: 20px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-size: 0.8rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition:
+        color 0.12s,
+        border-color 0.12s;
+    }
+    .btn-add:hover,
+    .btn-collapse:hover {
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+
+    /* ── Create form ─────────────────────────────────────────────── */
+
+    .create-form {
+      display: none;
+      flex-direction: column;
+      gap: 6px;
+      padding: 8px 10px;
+      background: rgba(255, 255, 255, 0.55);
+      border-bottom: 1px solid rgba(192, 130, 162, 0.15);
+      flex-shrink: 0;
+    }
+
+    .create-type-row {
+      display: flex;
+      gap: 4px;
+    }
+
+    .type-btn {
+      font-family: var(--font-mono);
+      font-size: 0.6rem;
+      letter-spacing: 0.02em;
+      padding: 2px 7px;
+      border-radius: 3px;
+      border: 1px solid var(--border);
+      background: none;
+      color: var(--fg-muted);
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+    .type-btn:hover {
+      color: var(--fg);
+      border-color: rgba(195, 195, 195, 0.9);
+    }
+    .type-btn.active[data-type="feature"] {
+      background: rgba(192, 130, 162, 0.13);
+      color: var(--c-feature);
+      border-color: rgba(192, 130, 162, 0.4);
+    }
+    .type-btn.active[data-type="bug"] {
+      background: rgba(212, 112, 112, 0.1);
+      color: var(--c-bug);
+      border-color: rgba(212, 112, 112, 0.35);
+    }
+    .type-btn.active[data-type="chore"] {
+      background: rgba(107, 144, 160, 0.12);
+      color: var(--c-chore);
+      border-color: rgba(107, 144, 160, 0.35);
+    }
+
+    .create-input-row {
+      display: flex;
+      gap: 5px;
+    }
+
+    .create-title {
+      flex: 1;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-input);
+      padding: 5px 8px;
+      color: var(--fg-strong);
+      background: #fff;
+      outline: none;
+    }
+    .create-title:focus {
+      border-color: var(--accent);
+    }
+    .create-title::placeholder {
+      color: var(--fg-muted);
+    }
+
+    .btn-create-submit {
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      padding: 4px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      background: var(--accent);
+      color: #fff;
+      border: 1px solid var(--accent);
+      transition: opacity 0.12s;
+    }
+    .btn-create-submit:hover {
+      opacity: 0.85;
+    }
+
+    .btn-create-cancel {
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      padding: 4px 7px;
+      border-radius: 4px;
+      cursor: pointer;
+      background: none;
+      color: var(--fg-muted);
+      border: 1px solid transparent;
+    }
+    .btn-create-cancel:hover {
+      color: var(--fg);
+    }
+
+    /* ── Cards list ──────────────────────────────────────────────── */
+
+    .empty-state {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 12px;
+    }
+    .empty-state p {
+      font-size: 0.68rem;
+      color: var(--fg-muted);
+      line-height: 1.65;
+      text-align: center;
+      opacity: 0.75;
+    }
+    .empty-state .hint {
+      font-size: 0.61rem;
+      margin-top: 3px;
+      opacity: 0.6;
+    }
+
+    /* ── Card ────────────────────────────────────────────────────── */
+
+    .card.dragging {
+      opacity: 0;
+      height: 0 !important;
+      overflow: hidden;
+      padding: 0 !important;
+      margin: 0 !important;
+      border: none !important;
+    }
+    .card.editing {
+      cursor: default;
+      box-shadow: 0 4px 14px rgba(192, 130, 162, 0.22);
+    }
+    .card.flash {
+      animation: card-flash 1.4s ease-out;
+    }
+    @keyframes card-flash {
+      0%,
+      30% {
+        box-shadow:
+          0 0 0 2px var(--accent),
+          0 4px 14px rgba(192, 130, 162, 0.35);
+      }
+      100% {
+        box-shadow: 0 0 0 0 transparent;
+      }
+    }
+
+    .card.type-feature {
+      border-left-color: var(--c-feature);
+    }
+    .card.type-bug {
+      border-left-color: var(--c-bug);
+    }
+    .card.type-chore {
+      border-left-color: var(--c-chore);
+    }
+
+    /* Card view */
+    .card-view {
+      padding: 8px 10px;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      margin-bottom: 4px;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      font-size: 0.55rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 1px 5px;
+      border-radius: 3px;
+    }
+    .badge.feature {
+      background: rgba(192, 130, 162, 0.12);
+      color: var(--c-feature);
+    }
+    .badge.bug {
+      background: rgba(212, 112, 112, 0.1);
+      color: var(--c-bug);
+    }
+    .badge.chore {
+      background: rgba(107, 144, 160, 0.12);
+      color: var(--c-chore);
+    }
+
+    .card-id {
+      font-size: 0.62rem;
+      color: var(--fg-muted);
+      flex: 1;
+    }
+
+    .meta-badge {
+      font-size: 0.55rem;
+      padding: 1px 5px;
+      border-radius: 3px;
+      background: rgba(195, 195, 195, 0.1);
+      border: 1px solid rgba(195, 195, 195, 0.45);
+      color: var(--fg-muted);
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+    .meta-badge.blocked {
+      background: rgba(212, 112, 112, 0.08);
+      border-color: rgba(212, 112, 112, 0.3);
+      color: var(--c-bug);
+    }
+    .meta-badge.blocked.link {
+      cursor: pointer;
+      text-transform: none;
+    }
+    .meta-badge.blocked.link:hover {
+      background: rgba(212, 112, 112, 0.18);
+      border-color: var(--c-bug);
+    }
+    /* Derived reverse side of blocked_by - this story blocks another. Amber, so
+           it reads as "you're holding something up" rather than "you're stuck". */
+    .meta-badge.blocks {
+      background: rgba(176, 128, 48, 0.09);
+      border-color: rgba(176, 128, 48, 0.32);
+      color: #b08030;
+    }
+    .meta-badge.blocks.link {
+      cursor: pointer;
+      text-transform: none;
+    }
+    .meta-badge.blocks.link:hover {
+      background: rgba(176, 128, 48, 0.2);
+      border-color: #b08030;
+    }
+    /* Symmetric relation (linked_to / linked_from union) - accent rose. */
+    .meta-badge.linked {
+      background: rgba(192, 130, 162, 0.1);
+      border-color: rgba(192, 130, 162, 0.32);
+      color: var(--accent);
+    }
+    .meta-badge.linked.link {
+      cursor: pointer;
+      text-transform: none;
+    }
+    .meta-badge.linked.link:hover {
+      background: rgba(192, 130, 162, 0.2);
+      border-color: var(--accent);
+    }
+
+    .btn-edit {
+      display: none;
+      background: none;
+      border: 1px solid rgba(195, 195, 195, 0.55);
+      color: var(--fg-muted);
+      font-family: var(--font-mono);
+      font-size: 0.57rem;
+      padding: 1px 6px;
+      border-radius: 3px;
+      cursor: pointer;
+      transition:
+        color 0.12s,
+        border-color 0.12s;
+    }
+    .btn-edit:hover {
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+    /* :focus-within puts the actions in the tab order once keyboard focus
+       reaches the card (its title row is focusable) - hover-only hid them
+       from keyboard users entirely. */
+    .card.body-expanded .btn-edit,
+    .card:focus-within .btn-edit {
+      display: inline-block;
+    }
+    .card-title-row:focus-visible,
+    .subtask:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+      border-radius: 3px;
+    }
+
+    /* Title row - click to expand */
+    .card-title-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 4px;
+      cursor: pointer;
+    }
+    .card-title {
+      font-size: 0.8rem;
+      line-height: 1.35;
+      color: var(--fg-strong);
+      word-break: break-word;
+      flex: 1;
+    }
+    .expand-chevron {
+      font-size: 0.58rem;
+      color: var(--fg-muted);
+      flex-shrink: 0;
+      margin-top: 3px;
+      transition: transform 0.18s;
+      opacity: 0.5;
+      line-height: 1.35;
+    }
+    .card.body-expanded .expand-chevron {
+      transform: rotate(180deg);
+      opacity: 0.7;
+    }
+
+    /* Card body - max-height animation */
+    .card-body {
+      max-height: 0;
+      overflow: hidden;
+      transition:
+        max-height 0.22s ease,
+        margin-top 0.18s;
+    }
+    .card.body-expanded .card-body {
+      max-height: 440px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      margin-top: 5px;
+    }
+
+    .body-preview {
+      font-size: 0.73rem;
+      line-height: 1.55;
+      color: var(--fg);
+      padding-bottom: 2px;
+      overflow-wrap: anywhere;
+    }
+    .body-preview p {
+      margin-bottom: 3px;
+    }
+    .body-preview ul {
+      padding-left: 14px;
+      margin-bottom: 3px;
+    }
+    .body-preview li {
+      margin-bottom: 1px;
+    }
+    .body-preview h1,
+    .body-preview h2,
+    .body-preview h3 {
+      font-size: 0.75rem;
+      font-weight: 400;
+      margin: 4px 0 2px;
+      color: var(--fg-strong);
+      letter-spacing: -0.5px;
+    }
+    .body-preview strong {
+      font-weight: 400;
+      color: var(--fg-strong);
+    }
+    .body-preview code {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      background: rgba(192, 130, 162, 0.1);
+      border: 1px solid rgba(192, 130, 162, 0.2);
+      border-radius: 3px;
+      padding: 0 3px;
+      overflow-wrap: anywhere;
+    }
+    .body-preview pre:not(.gherkin) {
+      background: rgba(192, 130, 162, 0.07);
+      color: var(--fg-strong);
+      border: 1px solid rgba(192, 130, 162, 0.15);
+      padding: 6px 8px;
+      border-radius: 5px;
+      font-size: 0.68rem;
+      overflow-x: auto;
+      margin: 3px 0;
+    }
+    .empty-body {
+      color: var(--fg-muted);
+      font-size: 0.7rem;
+      font-style: italic;
+    }
+
+    /* Subtasks */
+    .body-preview li.subtask {
+      list-style: none;
+      margin-left: -14px;
+    }
+    .subtask {
+      cursor: pointer;
+    }
+    .subtask .cb {
+      color: var(--accent);
+    }
+    .subtask:hover .cb {
+      color: var(--fg-strong);
+    }
+    .subtask.done {
+      color: var(--fg-muted);
+      text-decoration: line-through;
+    }
+    .meta-badge.subtask-progress {
+      text-transform: none;
+    }
+
+    /* Gherkin */
+    .gherkin {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: none;
+      padding: 0;
+      margin: 0;
+    }
+    .gh-keyword {
+      color: var(--accent);
+    }
+    .gh-title {
+      color: var(--fg-strong);
+    }
+    .gh-step {
+      color: var(--fg-strong);
+    }
+    .gh-param {
+      color: #b87040;
+    }
+    .gh-comment {
+      color: var(--fg-muted);
+      font-style: italic;
+    }
+    .gh-tag {
+      color: var(--accent);
+      font-style: italic;
+    }
+    .gh-docstr {
+      color: var(--fg-muted);
+    }
+    .gh-table {
+      color: var(--fg);
+    }
+
+    /* Card edit mode */
+    .card-edit {
+      padding: 8px 10px;
+      display: none;
+    }
+
+    .edit-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 7px;
+    }
+
+    .title-input {
+      width: 100%;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--fg-strong);
+      background: rgba(192, 130, 162, 0.05);
+      border: 1px solid var(--accent);
+      border-radius: var(--radius-input);
+      padding: 4px 7px;
+      outline: none;
+      margin-bottom: 6px;
+    }
+    .title-input:focus {
+      background: #fff;
+    }
+
+    .field-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+    .field-label {
+      font-size: 0.62rem;
+      color: var(--fg-muted);
+      white-space: nowrap;
+      min-width: 64px;
+    }
+    .field-input {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-input);
+      padding: 3px 7px;
+      color: var(--fg-strong);
+      background: rgba(192, 130, 162, 0.03);
+      outline: none;
+    }
+    .field-input:focus {
+      border-color: var(--accent);
+      background: #fff;
+    }
+    .field-input.wide {
+      flex: 1;
+    }
+    .field-input.narrow {
+      width: 72px;
+      text-transform: uppercase;
+    }
+
+    .size-picker {
+      display: flex;
+      gap: 4px;
+    }
+    .size-btn {
+      font-family: var(--font-mono);
+      font-size: 0.62rem;
+      padding: 2px 7px;
+      border-radius: 3px;
+      border: 1px solid var(--border);
+      background: none;
+      color: var(--fg);
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+    .size-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .size-btn.active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    .body-editor {
+      width: 100%;
+      min-height: 90px;
+      font-family: var(--font-mono);
+      font-size: 0.73rem;
+      color: var(--fg-strong);
+      background: rgba(192, 130, 162, 0.03);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-input);
+      padding: 6px 8px;
+      resize: vertical;
+      outline: none;
+      line-height: 1.55;
+    }
+    .body-editor:focus {
+      border-color: var(--accent);
+      background: #fff;
+    }
+
+    .card-actions {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      margin-top: 7px;
+    }
+    .flex-spacer {
+      flex: 1;
+    }
+
+    .btn-primary,
+    .btn-secondary,
+    .btn-danger {
+      font-family: var(--font-mono);
+      font-size: 0.63rem;
+      padding: 3px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      border: 1px solid var(--accent);
+    }
+    .btn-primary:hover {
+      opacity: 0.85;
+    }
+    .btn-secondary {
+      background: none;
+      color: var(--fg);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover {
+      border-color: var(--fg);
+    }
+    .btn-danger {
+      background: none;
+      color: var(--c-bug);
+      border: 1px solid var(--c-bug);
+    }
+    .btn-danger:hover {
+      background: rgba(212, 112, 112, 0.08);
+    }
+
+    /* Drop indicator */
+    .drop-line {
+      height: 2px;
+      background: var(--accent);
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    /* Reveal story btn */
+    .btn-reveal-story {
+      display: none;
+      background: none;
+      border: 1px solid rgba(195, 195, 195, 0.5);
+      color: var(--fg-muted);
+      font-family: var(--font-mono);
+      font-size: 0.57rem;
+      padding: 1px 5px;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+    .card:hover .btn-reveal-story,
+    .card:focus-within .btn-reveal-story {
+      display: inline-block;
+    }
+    .btn-reveal-story:hover {
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .btn-expand {
+      display: none;
+      background: none;
+      border: 1px solid rgba(195, 195, 195, 0.5);
+      color: var(--fg-muted);
+      font-family: var(--font-mono);
+      font-size: 0.62rem;
+      padding: 1px 5px;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+    .card:hover .btn-expand,
+    .card:focus-within .btn-expand,
+    .card.body-expanded .btn-expand {
+      display: inline-block;
+    }
+    .btn-expand:hover {
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+
+    /* Story detail modal (BT-070) */
+    <%= erb :'_detail_css', layout: false %>
+
+    /* ── Mobile tab bar ──────────────────────────────────────────── */
+
+    .mobile-tabs {
+      display: none;
+    }
+
+    @media (max-width: 640px) {
+      .board {
+        padding: 0;
+        gap: 0;
+      }
+      .column {
+        display: none;
+        flex: 1;
+        border-radius: 0 !important;
+        border: none !important;
+        background: var(--bg) !important;
+      }
+      .column.mobile-active {
+        display: flex;
+      }
+      .column.collapsed {
+        width: auto;
+      }
+      .column.collapsed .cards,
+      .column.collapsed .pagination {
+        display: flex;
+      }
+      .btn-collapse {
+        display: none;
+      }
+      .btn-reveal-story {
+        display: none !important;
+      }
+      .reveal-link {
+        display: none;
+      }
+      .cards {
+        padding: 0 10px 10px;
+      }
+      .btn-add {
+        width: 28px;
+        height: 28px;
+      }
+      .col-header {
+        padding: 12px 14px 8px;
+      }
+      .card {
+        cursor: default;
+      }
+
+      .mobile-tabs {
+        display: flex;
+        background: var(--fg-strong);
+        flex-shrink: 0;
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+      }
+      .mobile-tab {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 8px 4px 10px;
+        font-size: 0.48rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: rgba(255, 227, 240, 0.28);
+        cursor: pointer;
+        border: none;
+        background: none;
+        font-family: var(--font-mono);
+        gap: 3px;
+        transition: color 0.15s;
+        position: relative;
+      }
+      .mobile-tab.active {
+        color: var(--color-pink);
+      }
+      .mobile-tab.active::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 25%;
+        right: 25%;
+        height: 2px;
+        background: var(--accent);
+        border-radius: 0 0 2px 2px;
+      }
+      .tab-count {
+        font-size: 0.7rem;
+        line-height: 1;
+      }
+    }
+
+    /* ── Dark mode (palette lives in _root_css) ─────────────────── */
+
+    [data-theme="dark"] .create-form {
+      background: rgba(14, 8, 12, 0.75);
+    }
+    [data-theme="dark"] .create-title {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--fg-strong);
+    }
+    [data-theme="dark"] .create-title:focus {
+      background: rgba(255, 255, 255, 0.09);
+    }
+    [data-theme="dark"] .title-input {
+      background: rgba(255, 255, 255, 0.04);
+    }
+    [data-theme="dark"] .title-input:focus {
+      background: rgba(255, 255, 255, 0.07);
+    }
+    [data-theme="dark"] .field-input {
+      background: rgba(255, 255, 255, 0.04);
+    }
+    [data-theme="dark"] .field-input:focus {
+      background: rgba(255, 255, 255, 0.07);
+    }
+    [data-theme="dark"] .body-editor {
+      background: rgba(255, 255, 255, 0.04);
+    }
+    [data-theme="dark"] .body-editor:focus {
+      background: rgba(255, 255, 255, 0.07);
+    }
+    [data-theme="dark"] .next-bar {
+      background: rgba(192, 130, 162, 0.13);
+      border-bottom-color: rgba(192, 130, 162, 0.25);
+    }
+    [data-theme="dark"] .mobile-tabs {
+      background: #0e0a0d;
+      border-top-color: rgba(255, 255, 255, 0.04);
+    }
+    [data-theme="dark"] .size-btn {
+      color: var(--fg);
+    }
+    [data-theme="dark"] .btn-secondary {
+      color: var(--fg);
+    }
+    [data-theme="dark"] .count {
+      background: rgba(255, 255, 255, 0.07);
+    }
+    [data-theme="dark"] .body-preview pre:not(.gherkin) {
+      background: #111820;
+      color: #c8d4e0;
+      border-color: rgba(255, 255, 255, 0.08);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <% if @show_back %>
+    <a href="/" class="back-link">← dashboard</a>
+    <% end %>
+    <span class="carrot-mark" aria-hidden="true">🥕</span>
+    <h1><%= h(@project_name || "bacon tracker") %></h1>
+    <span class="ns"><%= h @namespace %></span>
+    <div class="header-spacer"></div>
+    <button class="theme-toggle" title="dark mode">◐</button>
+    <button id="btn-reveal-backlog" class="reveal-link" style="display:none" title="Reveal the tracker directory">↗</button>
+  </header>
+  <div id="next-bar" class="next-bar" style="display:none">
+    <span class="next-label">next:</span>
+    <span class="next-title" id="next-title-text"></span>
+  </div>
+  <div id="load-error" class="load-error" style="display:none">
+    <span>couldn't reach the tracker</span>
+    <button id="load-retry">retry</button>
+  </div>
+  <main class="board">
+    <div class="column" data-stage="1_icebox">
+      <div class="col-header">
+        <div class="col-label">
+          <h2>Icebox</h2>
+          <span class="col-sublabel">maybes</span>
+        </div>
+        <div class="col-right">
+          <span class="count">0</span>
+          <button class="btn-add" title="Add to icebox">+</button>
+        </div>
+      </div>
+      <div class="create-form"></div>
+      <div class="cards"></div>
+    </div>
+    <div class="column" data-stage="2_backlog">
+      <div class="col-header">
+        <div class="col-label">
+          <h2>Backlog</h2>
+          <span class="col-sublabel">committed</span>
+        </div>
+        <div class="col-right">
+          <span class="count">0</span>
+          <button class="btn-add" title="Add to backlog">+</button>
+        </div>
+      </div>
+      <div class="create-form"></div>
+      <div class="cards"></div>
+    </div>
+    <div class="column" data-stage="3_started">
+      <div class="col-header">
+        <h2>Started</h2>
+        <div class="col-right"><span class="count">0</span></div>
+      </div>
+      <div class="cards"></div>
+    </div>
+    <div class="column" data-stage="4_done">
+      <div class="col-header">
+        <h2>Done</h2>
+        <div class="col-right">
+          <span class="count">0</span>
+          <button class="btn-collapse" title="Collapse done">−</button>
+        </div>
+      </div>
+      <div class="cards"></div>
+      <div class="pagination"></div>
+    </div>
+  </main>
+  <nav class="mobile-tabs">
+    <button class="mobile-tab" data-target="1_icebox"><span class="tab-count" id="tc-icebox">0</span>icebox</button>
+    <button class="mobile-tab" data-target="2_backlog"><span class="tab-count" id="tc-backlog">0</span>backlog</button>
+    <button class="mobile-tab" data-target="3_started"><span class="tab-count" id="tc-started">0</span>started</button>
+    <button class="mobile-tab" data-target="4_done"><span class="tab-count" id="tc-done">0</span>done</button>
+  </nav>
+  <script>window.BT_API_BASE = <%= (@api_base || '').to_json %>;</script>
+  <script src="/theme.js"></script>
+  <script src="/logic.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

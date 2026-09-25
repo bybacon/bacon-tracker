@@ -1,0 +1,20 @@
+version: 2
+updates:
+  # The gem commits no lockfile, so this raises the gemspec's version limits
+  # when a dependency moves past them. One grouped pull request per week.
+  - package-ecosystem: bundler
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      gems:
+        patterns: ["*"]
+  # Actions are pinned by commit SHA; Dependabot keeps the pins and their
+  # version comments current.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]

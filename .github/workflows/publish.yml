@@ -1,0 +1,94 @@
+name: Publish
+
+# A v* tag on main publishes the gem to RubyGems and creates the GitHub
+# Release. Nothing is published unless the specs pass, the tag is on main,
+# the tag matches version.rb, and the changelog has a dated entry for it.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  spec:
+    uses: ./.github/workflows/specs.yml
+
+  verify:
+    if: github.repository == 'bybacon/bacon-tracker'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1.327.0
+        with:
+          ruby-version: "3.4"
+      - name: Tag is on main
+        run: |
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$GITHUB_REF_NAME points at a commit that is not on main." >&2
+            exit 1
+          fi
+      - name: Tag matches the gem version
+        id: version
+        run: |
+          version=$(ruby -Ilib -rbacon_tracker/version -e 'print BaconTracker::VERSION')
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match BaconTracker::VERSION (v$version). Bump with rake version:* or fix the tag." >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Changelog has a dated entry for this version
+        run: |
+          if ! grep -qE "^## \[${{ steps.version.outputs.version }}\] - [0-9]{4}-[0-9]{2}-[0-9]{2}$" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md needs a line '## [${{ steps.version.outputs.version }}] - YYYY-MM-DD'." >&2
+            exit 1
+          fi
+
+  rubygems:
+    needs: [spec, verify]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: rubygems
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1.327.0
+        with:
+          ruby-version: "3.4"
+      # OIDC trusted publishing - no stored API key. Requires the trusted
+      # publisher to be configured for this repository on rubygems.org.
+      - name: Configure RubyGems credentials
+        uses: rubygems/configure-rubygems-credentials@dc5a8d8553e6ee01fc26761a49e99e733d17954a # v2.1.0
+      - name: Build gem
+        run: gem build bacon-tracker.gemspec
+      - name: Push to RubyGems
+        run: gem push ./*.gem
+
+  github-release:
+    needs: [verify, rubygems]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Release notes from the changelog
+        run: |
+          awk -v v="${{ needs.verify.outputs.version }}" '
+            index($0, "## [" v "]") == 1 { on = 1; next }
+            on && /^## \[/ { exit }
+            on { print }
+          ' CHANGELOG.md > notes.md
+      - name: Create the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --verify-tag --title "$GITHUB_REF_NAME" --notes-file notes.md
