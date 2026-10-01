@@ -170,11 +170,32 @@ module BaconTracker
     @config || configure
   end
 
+  # German letters have a spelled-out ASCII form that readers expect in a
+  # filename ("datenschutzerklaerung", not "datenschutzerkl-rung"); every
+  # other accented letter loses its mark via NFKD decomposition (é -> e).
+  TRANSLITERATIONS = {
+    'ä' => 'ae', 'ö' => 'oe', 'ü' => 'ue', 'ß' => 'ss',
+    'Ä' => 'Ae', 'Ö' => 'Oe', 'Ü' => 'Ue', 'ẞ' => 'SS'
+  }.freeze
+
+  # What slugify returns when nothing of the title survives the ASCII rule
+  # (all-CJK, all-punctuation). Never "": an empty slug makes a dangling
+  # "<id>-.md" that is not a record (BT-095) and a dashboard route of
+  # "/projects/". The placeholder says what happened and asks for a hand-picked
+  # slug; the real title stays in the file's Title:/Feature: line.
+  EMPTY_SLUG = 'non-latin-REPLACE-ME'
+
   # Filesystem-safe slug from a human title - the single source shared by
   # Core (story filenames) and Dashboard (project slugs) so the two can never
-  # drift apart.
+  # drift apart. ASCII-only: the German letters are transliterated, other
+  # accents stripped, and whatever is still not [a-z0-9] becomes a hyphen.
+  # Never empty - see EMPTY_SLUG.
   def self.slugify(title)
-    title.downcase.gsub(/[^a-z0-9]+/, '-').gsub(/\A-|-\z/, '')
+    slug = title.to_s
+                .gsub(/[äöüßÄÖÜẞ]/, TRANSLITERATIONS)
+                .unicode_normalize(:nfkd).gsub(/\p{Mn}/, '')
+                .downcase.gsub(/[^a-z0-9]+/, '-').gsub(/\A-|-\z/, '')
+    slug.empty? ? EMPTY_SLUG : slug
   end
 
   class Core
@@ -313,16 +334,6 @@ module BaconTracker
       BaconTracker.slugify(title)
     end
 
-    # A non-empty slug for a filename. slugify keeps only [a-z0-9], so a title
-    # with no ASCII alphanumerics (all-CJK, all-punctuation) slugs to "" - fall
-    # back to 'untitled' so the file is "<id>-untitled.ext", not a dangling
-    # "<id>-.ext" with a blank humanized name (BT-095). The real title stays in
-    # the file's Title:/Feature: line.
-    def filename_slug(title)
-      slug = slugify(title)
-      slug.empty? ? 'untitled' : slug
-    end
-
     def story_dirs
       STORY_DIRS.flat_map do |dir, meta|
         STAGES.map do |stage|
@@ -402,6 +413,17 @@ module BaconTracker
     def humanize_slug(filename)
       base = File.basename(filename, File.extname(filename))
       base.sub(/\A#{id_pattern}-/, '').gsub('-', ' ')
+    end
+
+    # The in-file title: the "Feature:" line of a .feature, the "Title:" line
+    # of a .md. The filename slug is ASCII-only, so a humanized slug loses
+    # umlauts, dots and case ("Datenschutzerklärung" shows as
+    # "datenschutzerklaerung"); the in-file line is the title as typed. nil when
+    # the line is missing or blank, so callers fall back to the slug.
+    def story_title(body, ext)
+      line  = ext == '.feature' ? /^Feature:[ \t]*(.*)$/ : /^Title:[ \t]*(.*)$/
+      title = body[line, 1]&.strip
+      title unless title.nil? || title.empty?
     end
 
     # Delegates to set_frontmatter_field: the substitution stays scoped to the
@@ -1324,7 +1346,7 @@ module BaconTracker
       with_decisions_lock do
         heal_proposed!
         id   = format_decision_id(consume_decision_id)
-        slug = filename_slug(title) # never "<id>-.md", which is not a record
+        slug = slugify(title) # never "<id>-.md", which is not a record (EMPTY_SLUG)
         template_path = File.join(root, '_template.md')
         body = File.exist?(template_path) ? File.read(template_path, encoding: 'utf-8') : Templates::DECISION
         today = Date.today.iso8601
@@ -1660,7 +1682,7 @@ module BaconTracker
       subtasks = subtask_counts(body, ext)
 
       { id: id, type: dir_meta[:type], stage: dir_meta[:stage], dir: dir_meta[:dir],
-        path: path, title: humanize_slug(path), body: body, size: size,
+        path: path, title: story_title(body, ext) || humanize_slug(path), body: body, size: size,
         blocked_by: blocked_by, linked_to: linked_to, assignee: assignee, subtasks: subtasks,
         # Body-line addresses of the subtasks - the client renders/toggles by
         # these instead of re-deriving fence rules (the BT-049 drift class).
@@ -1851,7 +1873,7 @@ module BaconTracker
       with_lock do
         id_num = consume_id
         id     = format_id(id_num)
-        slug   = filename_slug(title)
+        slug   = slugify(title)
 
         filename = "#{id}-#{slug}#{ext}"
         dest_dir = File.join(@config.tracker_root, dir, stage)
@@ -1975,7 +1997,7 @@ module BaconTracker
 
       if title || body || !size.nil? || !blocked_by.nil? || !linked_to.nil? || !assignee.nil?
         atomic_write(path, content)
-        new_path = title ? File.join(File.dirname(path), "#{id}-#{filename_slug(title)}#{ext}") : path
+        new_path = title ? File.join(File.dirname(path), "#{id}-#{slugify(title)}#{ext}") : path
         if path != new_path
           FileUtils.mv(path, new_path)
           path = new_path

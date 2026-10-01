@@ -146,7 +146,7 @@ RSpec.describe 'pre-release review fixes (BT-179)' do
     it 'gives a non-ASCII title a real filename and keeps backslashes verbatim' do
       with_fixture_repo(decisions: true) do |core, _|
         path = core.create_decision('日本語')
-        expect(File.basename(path)).to eq('TST-ADR-0001-untitled.md')
+        expect(File.basename(path)).to eq('TST-ADR-0001-non-latin-REPLACE-ME.md')
         path = core.create_decision('Use C:\temp \0 and \&')
         expect(File.read(path)).to include('# Use C:\temp \0 and \&')
       end
