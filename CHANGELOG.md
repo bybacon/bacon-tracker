@@ -3,6 +3,17 @@
 All notable changes to this project will be documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] - 2026-10-01
+
+### Changed
+
+- Filename slugs spell out `ä`, `ö`, `ü`, `ß` as `ae`, `oe`, `ue`, `ss` and drop accents from other letters, so "Datenschutzerklärung" becomes `datenschutzerklaerung` instead of `datenschutzerkl-rung`. Existing files keep their names until the story is retitled.
+- A title with nothing the slug rule keeps (all-CJK, all-punctuation) now slugs to `non-latin-REPLACE-ME` instead of `untitled`, for story files, decision records and dashboard project slugs alike. The dashboard used to get an empty project slug in that case.
+
+### Fixed
+
+- Story titles on the board and in the API now come from the in-file `Title:`/`Feature:` line, so umlauts, dots and capitals survive. They were humanized from the filename slug, which keeps only ASCII letters and digits ("Datenschutzerklärung" showed as "datenschutzerkl rung", "bybacon.com" as "bybacon com"). The slug remains the fallback when the line is missing.
+
 ## [1.0.0] - 2026-09-25
 
 First public release.

@@ -105,7 +105,7 @@ type must be `feature`, `bug`, or `chore`. The title is everything after the typ
 1. Determine N: read the integer from `$TRACKER_ROOT/.next-id`, then **floor it above the highest `<NS>-NNN` already on disk** (`N = max(read, highest + 1)`). A stale `.next-id` from a merge or hand edit must never reissue an existing ID. When `rake` is available, prefer `rake story:<type>['title',field=…]`, which allocates the ID atomically (with this floor, under a file lock).
 2. Write `N+1` back to `.next-id`
 3. Pad N to 3 digits: `NNN`
-4. Slugify the title: lowercase it, turn each run of characters that aren't `a-z` or `0-9` into a single hyphen, and trim hyphens from both ends. If nothing is left, the slug is `untitled`
+4. Slugify the title: spell out `ä`/`ö`/`ü`/`ß` as `ae`/`oe`/`ue`/`ss`, drop accents from other letters (`é` → `e`), lowercase it, turn each run of characters that aren't `a-z` or `0-9` into a single hyphen, and trim hyphens from both ends. If nothing is left, the slug is `non-latin-REPLACE-ME`
 5. Extension: `.feature` for features, `.md` for bugs and chores
 6. Create `$TRACKER_ROOT/<plural-type>/1_icebox/<NS>-<NNN>-<slug>.<ext>` (e.g. `features/1_icebox/...`). The body is the type's `_template.feature` / `_template.md` if one exists, with the title filled in (`Feature: <title>`, or `Title: <title>` on the first line for `.md`). Write frontmatter **in the file's format**: for `.md`, a YAML block `---` / `id: <NS>-<NNN>` / `type: <type>` / `status: icebox` / `---`; for `.feature`, comment-style header lines `# id: <NS>-<NNN>` / `# type: <type>` / `# status: icebox`. (A `.feature` file is parsed by its `# key:` lines **or** a leading YAML `---` block if one is present - but a file mixes only one style, so match the sibling files in the same tracker rather than introducing the other.)
 7. If any `field=value` tokens were given, set them in the frontmatter (same rules as `edit`)
@@ -183,7 +183,7 @@ Display a story's content:
 
 1. `find $TRACKER_ROOT -name "${ID}-*"` to locate the file
 2. Read it, strip the frontmatter block
-3. Print: ID, type, stage, title (humanised from filename), any set metadata fields, then body
+3. Print: ID, type, stage, title (the `Title:`/`Feature:` line; humanised from the filename if that line is missing), any set metadata fields, then body
 
 ```
 APP-003 - implement user auth
@@ -264,6 +264,6 @@ Report each finding with the ID and file path, or confirm all checks pass. Don't
 
 - Expand `~` in any paths using shell: `eval echo <path>` or `realpath`.
 - When editing frontmatter, match the existing format (comment-style for `.feature`, YAML for `.md`).
-- Slugify: `echo "$TITLE" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//'` - and use `untitled` if the result is empty
+- Slugify: `echo "$TITLE" | sed 's/ä/ae/g; s/ö/oe/g; s/ü/ue/g; s/ß/ss/g; s/Ä/Ae/g; s/Ö/Oe/g; s/Ü/Ue/g' | perl -CS -MUnicode::Normalize -pe '$_ = NFKD($_); s/\p{Mn}//g' | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//'` - and use `non-latin-REPLACE-ME` if the result is empty
 - `backlog.md` line format: `- <NS>-NNN <title>` (leading dash, single space - exactly what the gem writes; the stats and next-task parsers depend on it). Preserve this when adding/removing entries.
 - Keep output concise - one line per story, full content only for `show`.

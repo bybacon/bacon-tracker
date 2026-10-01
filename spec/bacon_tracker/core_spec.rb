@@ -8,6 +8,14 @@ RSpec.describe BaconTracker::Core do
       expect(core.slugify('Hello World!')).to eq('hello-world')
       expect(core.slugify('  Foo -- Bar  ')).to eq('foo-bar')
     end
+
+    it 'spells out German letters and strips other accents' do
+      core = BaconTracker::Core.new(BaconTracker::Configuration.new)
+      expect(core.slugify('Datenschutzerklärung')).to eq('datenschutzerklaerung')
+      expect(core.slugify('Größe ÜBER Straße')).to eq('groesse-ueber-strasse')
+      expect(core.slugify('Café résumé: niño')).to eq('cafe-resume-nino')
+      expect(core.slugify('日本語')).to eq('non-latin-REPLACE-ME') # never '', see EMPTY_SLUG
+    end
   end
 
   describe '#format_id' do
@@ -443,11 +451,37 @@ RSpec.describe BaconTracker::Core do
       end
     end
 
-    it "uses an 'untitled' slug when the title has no ASCII alphanumerics" do
+    it 'uses the EMPTY_SLUG placeholder when the title has no ASCII alphanumerics' do
       with_fixture_repo do |core, _root|
         story = core.create_story('bug', '日本語')
-        expect(File.basename(story[:path])).to eq('TST-001-untitled.md') # not a dangling "TST-001-.md"
+        expect(File.basename(story[:path])).to eq('TST-001-non-latin-REPLACE-ME.md') # not a dangling "TST-001-.md"
+        expect(story[:title]).to eq('日本語')
         expect(core.find_story('TST-001')).not_to be_nil
+      end
+    end
+
+    it 'takes the title from the in-file Title:/Feature: line, not the filename slug' do
+      with_fixture_repo do |core, _root|
+        md      = core.create_story('chore', 'Go-live on bybacon.com: Datenschutzerklärung')
+        feature = core.create_story('feature', 'Übersicht für Jean')
+        expect(File.basename(md[:path])).to eq('TST-001-go-live-on-bybacon-com-datenschutzerklaerung.md')
+        expect(md[:title]).to eq('Go-live on bybacon.com: Datenschutzerklärung')
+        expect(feature[:title]).to eq('Übersicht für Jean')
+        titles = core.all_stories.to_h { |s| [s[:id], s[:title]] }
+        expect(titles).to eq('TST-001' => 'Go-live on bybacon.com: Datenschutzerklärung',
+                             'TST-002' => 'Übersicht für Jean')
+      end
+    end
+
+    it 'falls back to the humanized slug when the in-file title line is missing or blank' do
+      with_fixture_repo do |core, root|
+        d = { type: 'bug', ext: '.md', stage: '1_icebox', dir: 'bugs' }
+        missing = "#{root}/bugs/1_icebox/TST-001-no-title-line.md"
+        blank   = "#{root}/bugs/1_icebox/TST-002-blank-title-line.md"
+        File.write(missing, "---\nid: TST-001\ntype: bug\n---\n\n## Description\n")
+        File.write(blank, "---\nid: TST-002\ntype: bug\n---\n\nTitle:\n\n## Description\n")
+        expect(core.parse_story_file(missing, d)[:title]).to eq('no title line')
+        expect(core.parse_story_file(blank, d)[:title]).to eq('blank title line')
       end
     end
 

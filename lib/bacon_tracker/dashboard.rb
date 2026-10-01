@@ -136,11 +136,15 @@ module BaconTracker
         return nil
       end
 
+      # A name with nothing the slug rule keeps gets the EMPTY_SLUG placeholder
+      # as its route (never an empty "/projects/"), but a namespace must not be
+      # guessed from it: stories are matched by "<NS>-NNN", so an explicit
+      # 'namespace:' is required.
       slug      = BaconTracker.slugify(item[:name])
-      namespace = item[:attrs]['namespace'] || slug.upcase.gsub('-', '_')
+      namespace = item[:attrs]['namespace'] || (slug == BaconTracker::EMPTY_SLUG ? '' : slug.upcase.gsub('-', '_'))
       if namespace.empty?
         warn "[BaconTracker] dashboard.md: skipping project #{item[:name].inspect} - " \
-             "empty namespace (its name has no letters/digits; add an explicit 'namespace:')"
+             "no usable namespace (its name has no letters/digits; add an explicit 'namespace:')"
         return nil
       end
 

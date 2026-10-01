@@ -418,13 +418,15 @@ RSpec.describe BaconTracker::Server do
 
       it 'returns the updated story object (BT-065)' do
         @core.create_story('chore', 'Before')
-        put '/api/stories/TST-001', { title: 'After', body: "- [ ] step\n" }.to_json,
+        # The board sends the whole body, Title: line included (the title
+        # substitution then rewrites that line).
+        put '/api/stories/TST-001', { title: 'After', body: "Title: Before\n\n- [ ] step\n" }.to_json,
             'CONTENT_TYPE' => 'application/json'
         expect(last_response.status).to eq(200)
         story = JSON.parse(last_response.body)
-        expect(story['title']).to eq('after') # titles are filename-humanized, as in GET
+        expect(story['title']).to eq('After') # the in-file Title: line, as in GET
         expect(story['subtasks']).to eq({ 'done' => 0, 'total' => 1 })
-        expect(story['subtask_lines']).to eq([0])
+        expect(story['subtask_lines']).to eq([2])
       end
 
       it 'returns 400 (not 500) when the .md file has malformed frontmatter' do

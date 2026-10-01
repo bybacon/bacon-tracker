@@ -22,7 +22,7 @@ Each type directory holds the four stage directories - `1_icebox/`, `2_backlog/`
 APP-001-implement-user-auth.feature
 ```
 
-The ID prefix is what every tool matches on. The slug is made from the title when the story is created: lowercased, each run of anything that isn't a letter or digit turned into one hyphen, trimmed at both ends (`untitled` if nothing is left). `.feature` for features, `.md` for bugs and chores. A leading `_` marks a file as not a story - `_template.feature` is skipped by every scan.
+The ID prefix is what every tool matches on. The slug is made from the title when the story is created: `ä`, `ö`, `ü`, `ß` spelled out as `ae`, `oe`, `ue`, `ss`, other accents dropped (`é` → `e`), lowercased, each run of anything that isn't `a-z` or `0-9` turned into one hyphen, trimmed at both ends. If nothing is left (a title written entirely in, say, Japanese), the slug is `non-latin-REPLACE-ME` - rename the file by hand, the title in the file is untouched. `.feature` for features, `.md` for bugs and chores. A leading `_` marks a file as not a story - `_template.feature` is skipped by every scan.
 
 ## Frontmatter
 
@@ -60,7 +60,7 @@ Title: Login redirect loops on expired session
 ...
 ```
 
-The story's in-file title is its `Feature:` line (features) or `Title:` line (bugs and chores). The board shows the title made from the filename slug instead (as does the line a commit adds to `backlog.md`) - `APP-002-login-redirect-loops-on-expired-session.md` displays as "login redirect loops on expired session". Changing the title through `story:edit`, `/tracker edit` or the board's edit mode updates both: it rewrites the in-file line and renames the file. Editing the `Title:` line by hand changes only the file's content.
+The story's title is its `Feature:` line (features) or `Title:` line (bugs and chores). The board and the API show that line as typed - `Title: Login redirect loops on expired session` displays as "Login redirect loops on expired session", umlauts, dots and capitals included. Only when the line is missing or blank does the title fall back to the filename slug, humanized ("login redirect loops on expired session"; "Datenschutzerklärung" would show as "datenschutzerklaerung"). The line a commit adds to `backlog.md` is still made from the slug. Changing the title through `story:edit`, `/tracker edit` or the board's edit mode updates both: it rewrites the in-file line and renames the file. Editing the `Title:` line by hand changes the title the board shows, but not the filename.
 
 A `.feature` file that opens with a `---` YAML block is read as YAML too, so a
 story authored by hand in the wrong dialect still parses.

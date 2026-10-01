@@ -42,7 +42,7 @@ Returns all stories grouped by stage. `backlog` is ordered by `backlog.md`; `don
 }
 ```
 
-`title` is the filename slug, humanized; the in-file `Title:`/`Feature:` line is part of `body`. `subtask_lines` holds the body-line numbers (0-based) of the checklist items, in `index` order - clients should render and toggle by these addresses rather than re-deriving which lines are checkboxes.
+`title` is the in-file `Title:`/`Feature:` line as typed (the line itself stays part of `body`); when that line is missing or blank it is the filename slug, humanized. `subtask_lines` holds the body-line numbers (0-based) of the checklist items, in `index` order - clients should render and toggle by these addresses rather than re-deriving which lines are checkboxes.
 
 `size` and `assignee` are `null` when not set; `blocked_by` and `linked_to` are `[]`; `subtasks` and `subtask_lines` are `null` when the body has no checklist. `path` and `meta` carry absolute filesystem paths (used by the reveal buttons) - the server binds to localhost only.
 

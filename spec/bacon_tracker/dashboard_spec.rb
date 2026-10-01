@@ -61,6 +61,16 @@ RSpec.describe BaconTracker::Dashboard do
       end
     end
 
+    it 'keeps a project whose name has no ASCII letters when a namespace is given, with a placeholder slug' do
+      Dir.mktmpdir do |base|
+        dash = File.join(base, 'dashboard.md')
+        File.write(dash, "## 日本語\npath: #{base}/jp\nnamespace: JP\n")
+        projects = described_class.new(dash).projects
+        expect(projects.map(&:slug)).to eq(['non-latin-REPLACE-ME']) # never an empty "/projects/" route
+        expect(projects.map(&:namespace)).to eq(['JP'])
+      end
+    end
+
     it 'warns instead of silently dropping a project with no path:' do
       Dir.mktmpdir do |base|
         dash = File.join(base, 'dashboard.md')
