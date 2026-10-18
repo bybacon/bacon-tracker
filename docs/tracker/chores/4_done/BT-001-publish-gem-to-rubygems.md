@@ -1,7 +1,7 @@
 ---
 id: BT-001
 type: chore
-status: icebox
+status: done
 ---
 
 Title: Publish the gem to RubyGems
