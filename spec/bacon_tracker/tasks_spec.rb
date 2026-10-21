@@ -161,6 +161,35 @@ RSpec.describe BaconTracker::Tasks do
     end
   end
 
+  describe 'BT-184: story:lint reports a size the tracker does not know' do
+    def sized_chore(root, id, stage, size)
+      FileUtils.mkdir_p("#{root}/chores/#{stage}")
+      File.write("#{root}/chores/#{stage}/#{id}-thing.md",
+                 "---\nid: #{id}\ntype: chore\nstatus: #{BaconTracker::STATUS_MAP[stage]}\nsize: #{size}\n---\n\nbody\n")
+    end
+
+    it 'names the story and its value without failing the build' do
+      Dir.mktmpdir do |base|
+        root = tracker_root(base, 'proj')
+        sized_chore(root, 'PRJ-001', '1_icebox', 'XS')
+        sized_chore(root, 'PRJ-002', '1_icebox', 'M')
+        File.write("#{root}/.next-id", '3')
+        BaconTracker.configure { |c| c.namespace = 'PRJ'; c.tracker_root = root }
+        BaconTracker::Tasks.install
+        err = StringIO.new
+        original = $stderr
+        $stderr = err
+        begin
+          expect { silence_output { Rake::Task['story:lint'].invoke } }.not_to raise_error
+        ensure
+          $stderr = original
+        end
+        expect(err.string).to match(/unknown-size: PRJ-001 says size 'XS' - sizes are S, M, L/)
+        expect(err.string).not_to include('PRJ-002')
+      end
+    end
+  end
+
   describe 'BT-123: LINT_FORMAT=github' do
     around do |example|
       saved = ENV.values_at('LINT_FORMAT', 'GITHUB_WORKSPACE')
@@ -219,6 +248,22 @@ RSpec.describe BaconTracker::Tasks do
 
         out = lint_output(root)
         expect(out).to match(/^::notice .*blocked-started: PRJ-002/)
+        expect(out).not_to match(/^::error/)
+      end
+    end
+
+    it 'annotates an unknown size on its size: line as ::notice (BT-184)' do
+      Dir.mktmpdir do |base|
+        root = tracker_root(base, 'proj')
+        FileUtils.mkdir_p("#{root}/chores/1_icebox")
+        File.write("#{root}/chores/1_icebox/PRJ-001-x.md",
+                   "---\nid: PRJ-001\ntype: chore\nstatus: icebox\nsize: XS\n---\n\nbody\n")
+        File.write("#{root}/.next-id", '2')
+        ENV['LINT_FORMAT'] = 'github'
+        ENV['GITHUB_WORKSPACE'] = root
+
+        out = lint_output(root)
+        expect(out).to match(%r{^::notice file=chores/1_icebox/PRJ-001-x\.md,line=5::unknown-size: PRJ-001 says size 'XS'})
         expect(out).not_to match(/^::error/)
       end
     end
