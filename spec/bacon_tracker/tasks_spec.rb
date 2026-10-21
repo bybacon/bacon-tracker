@@ -190,6 +190,27 @@ RSpec.describe BaconTracker::Tasks do
     end
   end
 
+  describe 'BT-185: story:lint points out a template with its own header' do
+    it 'names the template without failing the build' do
+      Dir.mktmpdir do |base|
+        root = tracker_root(base, 'proj')
+        File.write("#{root}/chores/_template.md", "---\nid: X-000\ntype: chore\n---\n\nTitle: placeholder\n")
+        BaconTracker.configure { |c| c.namespace = 'PRJ'; c.tracker_root = root }
+        BaconTracker::Tasks.install
+        err = StringIO.new
+        original = $stderr
+        $stderr = err
+        begin
+          expect { silence_output { Rake::Task['story:lint'].invoke } }.not_to raise_error
+        ensure
+          $stderr = original
+        end
+        expect(err.string).to match(%r{template-header: _template\.md in chores/ starts with a header block})
+        expect(err.string).not_to include('bugs/')
+      end
+    end
+  end
+
   describe 'BT-123: LINT_FORMAT=github' do
     around do |example|
       saved = ENV.values_at('LINT_FORMAT', 'GITHUB_WORKSPACE')
@@ -264,6 +285,19 @@ RSpec.describe BaconTracker::Tasks do
 
         out = lint_output(root)
         expect(out).to match(%r{^::notice file=chores/1_icebox/PRJ-001-x\.md,line=5::unknown-size: PRJ-001 says size 'XS'})
+        expect(out).not_to match(/^::error/)
+      end
+    end
+
+    it 'annotates a template with its own header on line 1 as ::notice (BT-185)' do
+      Dir.mktmpdir do |base|
+        root = tracker_root(base, 'proj')
+        File.write("#{root}/features/_template.feature", "# id: X-000\n# type: feature\n\nFeature: Name the Feature\n")
+        ENV['LINT_FORMAT'] = 'github'
+        ENV['GITHUB_WORKSPACE'] = root
+
+        out = lint_output(root)
+        expect(out).to match(%r{^::notice file=features/_template\.feature,line=1::template-header: _template\.feature in features/})
         expect(out).not_to match(/^::error/)
       end
     end

@@ -485,6 +485,58 @@ RSpec.describe BaconTracker::Core do
       expect(BaconTracker::Templates.markdown('bug')).not_to match(/^\s*- \[[ xX]\]/)
     end
 
+    it 'drops a header block the template starts with, so a new story has one header and the title as typed (BT-185)' do
+      with_fixture_repo do |core, root|
+        File.write("#{root}/chores/_template.md",
+                   "---\nid: X-000\ntype: chore\nstatus: icebox\n---\n\nTitle: The team should be able to [overarching goal]\n\n## Description\n")
+        story = core.create_story('chore', 'Fix the thing')
+        content = File.read(story[:path])
+        expect(content.scan(/^---$/).size).to eq(2)
+        expect(content).to start_with("---\nid: TST-001\ntype: chore\nstatus: icebox\n---\n\nTitle: Fix the thing\n")
+        expect(content).not_to include('X-000')
+        expect(content).not_to include('[overarching goal]')
+        expect(content).to include('## Description')
+        expect(story[:title]).to eq('Fix the thing')
+        expect(story[:declared_status]).to eq('icebox')
+      end
+    end
+
+    it 'drops the # key: header lines a .feature template starts with (BT-185)' do
+      with_fixture_repo do |core, root|
+        File.write("#{root}/features/_template.feature",
+                   "# id: X-000\n# type: feature\n# status: icebox\n\nFeature: [name]\n\n  Scenario: Happy path\n")
+        story = core.create_story('feature', 'Log in with a key')
+        content = File.read(story[:path])
+        expect(content).to start_with("# id: TST-001\n# type: feature\n# status: icebox\n\nFeature: Log in with a key\n")
+        expect(content).not_to include('X-000')
+        expect(content).to include('Scenario: Happy path')
+        expect(story[:title]).to eq('Log in with a key')
+      end
+    end
+
+    it 'fills the first Title: line wherever it sits and adds one when the template has none (BT-185)' do
+      with_fixture_repo do |core, root|
+        File.write("#{root}/bugs/_template.md", "<!-- fill me in -->\n\nTitle: placeholder\n\n**Currently:**\n")
+        bug = core.create_story('bug', 'Crash on save')
+        expect(File.read(bug[:path])).to include("<!-- fill me in -->\n\nTitle: Crash on save\n\n**Currently:**\n")
+        File.write("#{root}/chores/_template.md", "## Description\n\nSome prose.\n")
+        chore = core.create_story('chore', 'Tidy up')
+        expect(File.read(chore[:path])).to end_with("---\n\nTitle: Tidy up\n\n## Description\n\nSome prose.\n")
+        expect(chore[:title]).to eq('Tidy up')
+      end
+    end
+
+    it 'template_headers names the templates that start with a header block (BT-185)' do
+      with_fixture_repo do |core, root|
+        expect(core.template_headers).to eq([])
+        File.write("#{root}/chores/_template.md", "---\nid: X-000\ntype: chore\n---\n\nTitle: x\n")
+        File.write("#{root}/features/_template.feature", "# id: X-000\n\nFeature: x\n")
+        File.write("#{root}/bugs/_template.md", "Title: x\n\n---\n\na rule, not a header\n")
+        expect(core.template_headers.map { |f| [f[:dir], File.basename(f[:path])] })
+          .to contain_exactly(['chores', '_template.md'], ['features', '_template.feature'])
+      end
+    end
+
     it 'a story created from the fallback template has zero subtasks (BT-108)' do
       with_fixture_repo do |core, root|
         File.delete("#{root}/bugs/_template.md") # force the Templates fallback

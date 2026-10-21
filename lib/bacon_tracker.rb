@@ -1940,19 +1940,60 @@ module BaconTracker
                    else
                      Templates.for(ext, kind)
                    end
-        filled = if ext == '.feature'
-                   template.sub('Name the Feature') { title }
-                 else
-                   template.sub(/\ATitle:.*/) { "Title: #{title}" }
-                 end
         fm      = kind == 'feature' ? frontmatter_feature(id, kind, status) : frontmatter_md(id, kind, status)
-        content = fm + filled
+        content = fm + fill_template(template, ext, title)
 
         atomic_write(dest, content)
         backlog_add(id, dest) if stage == '2_backlog'
         set_frontmatter_field(dest, 'size', norm_size) if norm_size
 
         parse_story_file(dest, { type: kind, stage: stage, dir: dir })
+      end
+    end
+
+    # The body of a new story: the template without any header block of its
+    # own, with the title filled into its first Title:/Feature: line. A
+    # template that starts with a header (id/type/status, a placeholder id)
+    # used to be copied as is, so the new story carried two headers and the
+    # template's placeholder title (BT-185). A template without a title line
+    # gets one, so the title as typed always reaches the file.
+    def fill_template(template, ext, title)
+      body = strip_template_header(template)
+      line = ext == '.feature' ? 'Feature' : 'Title'
+      if body.match?(/^#{line}:.*$/)
+        body.sub(/^#{line}:.*$/) { "#{line}: #{title}" }
+      else
+        "#{line}: #{title}\n\n#{body}"
+      end
+    end
+
+    # The header block a template starts with, if any - a YAML '---' block in
+    # either dialect, or the '# key: value' lines of a .feature. Returns the
+    # body after it (leading blank lines dropped), or the template unchanged.
+    def strip_template_header(template)
+      if template.start_with?("---\n")
+        close = template.index(/^---\n/, 4)
+        close ? template[(close + 4)..].lstrip : template
+      elsif template.match?(/\A#{FEATURE_HEADER}/)
+        template.lines.drop_while { |l| l.match?(FEATURE_HEADER) }.join.lstrip
+      else
+        template
+      end
+    end
+
+    # Story templates that start with a header block of their own (BT-185).
+    # create_story drops it, but the /tracker command's file steps and anyone
+    # copying the template by hand would not, so story:lint points it out and
+    # the project can take it out of the template.
+    def template_headers
+      STORY_DIRS.filter_map do |dir, m|
+        path = File.join(@config.tracker_root, dir, "_template#{m[:ext]}")
+        next unless File.exist?(path)
+
+        template = File.read(path, encoding: 'utf-8')
+        next if strip_template_header(template).equal?(template)
+
+        { path: path, dir: dir }
       end
     end
 

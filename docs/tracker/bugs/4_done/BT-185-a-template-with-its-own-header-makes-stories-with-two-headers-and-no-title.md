@@ -1,7 +1,7 @@
 ---
 id: BT-185
 type: bug
-status: icebox
+status: done
 ---
 
 Title: A template with its own header makes stories with two headers and no title
@@ -15,7 +15,7 @@ The check does not notice either problem.
 The chore and bug templates of most of our projects all start this way.
 
 **Expected:**
-A new story has exactly one header and the title as typed, whether or not the template starts with a header of its own.
+A new story has exactly one header and the title as typed, whether or not the template starts with a header of its own. The title goes into the template's first Title line wherever it sits; a template without one gets the line added.
 A template whose header would be copied into new stories is pointed out, so the project can drop it.
 
 **STEPS TO REPRODUCE:**
