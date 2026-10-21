@@ -36,13 +36,19 @@ Why each check reports what it does - and why some findings deliberately do not 
 |---|---|---|
 | `unknown-size` | A story's `size:` is not `S`, `M` or `L` | **Reported, does not fail.** The board shows the story without a size. Set one of the three, or clear the field. Creating or editing a story with such a value is refused outright; this finding only catches a hand edit or a file written by an older tool. |
 
+### Templates
+
+| Finding | Means | Fix |
+|---|---|---|
+| `template-header` | A `_template.md` or `_template.feature` starts with a header block of its own (`---` / `id:` / `type:` / `---`, or `# id:` lines) | **Reported, does not fail.** `story:*` and the API drop the block when they create a story, but a copy made by hand would carry two headers and a placeholder id. Take the block out of the template; new stories get their own. |
+
 A `blocked_by` value that is not a story ID for the current namespace is left alone. Waiting on an upstream release (`sinatra-5.x`) or another team's ticket is a real use of the field, not a dangling reference.
 
 Stories already in `4_done` are never the *subject* of a finding. Done is append-only, so their relationships are a record of what was true when the work shipped. They are still the *object* of one - that is exactly what `stale-blocker` detects.
 
 ## What fails, and what only tells you
 
-Everything above fails the command except `blocked-started` and `unknown-size`, which print and exit `0`:
+Everything above fails the command except `blocked-started`, `unknown-size` and `template-header`, which print and exit `0`:
 
 ```
   blocked-started: APP-004 is started but waits on APP-003 (2_backlog)
@@ -60,7 +66,7 @@ Set `LINT_FORMAT=github` and each finding becomes an annotation on the story fil
 ::error file=tracker/features/2_backlog/APP-004-notifications.feature,line=5::stale-blocker: APP-004 waits on APP-003, which is done - clear it from blocked_by
 ```
 
-`blocked-started` and `unknown-size` are emitted as `::notice`, annotating without failing the check. Without the variable the output is unchanged, so local use is unaffected.
+`blocked-started`, `unknown-size` and `template-header` are emitted as `::notice`, annotating without failing the check. Without the variable the output is unchanged, so local use is unaffected.
 
 Any CI system works - it is one command:
 
