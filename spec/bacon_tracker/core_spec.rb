@@ -1665,6 +1665,61 @@ RSpec.describe BaconTracker::Core do
       end
     end
 
+    describe 'backlog line titles (BT-186)' do
+      it 'commit writes the in-file title to backlog.md, not the humanized slug' do
+        with_fixture_repo do |core, root|
+          core.create_story('chore', 'Go-live on bybacon.com: Datenschutzerklärung')
+          core.set_stage('TST-001', '2_backlog')
+          expect(File.read("#{root}/backlog.md")).to eq("- TST-001 Go-live on bybacon.com: Datenschutzerklärung\n")
+        end
+      end
+
+      it 'falls back to the opening heading, then the humanized slug, like the board' do
+        with_fixture_repo do |core, root|
+          File.write("#{root}/bugs/1_icebox/TST-001-an_external_check.md",
+                     "---\nid: TST-001\ntype: bug\nstatus: icebox\n---\n\n# The operator hears when Uptime Kuma goes down\n")
+          File.write("#{root}/bugs/1_icebox/TST-002-no-title-at-all.md",
+                     "---\nid: TST-002\ntype: bug\nstatus: icebox\n---\n\nJust prose.\n")
+          core.set_stage('TST-001', '2_backlog')
+          core.set_stage('TST-002', '2_backlog')
+          expect(File.read("#{root}/backlog.md"))
+            .to eq("- TST-001 The operator hears when Uptime Kuma goes down\n- TST-002 no title at all\n")
+        end
+      end
+
+      it 'heals an unlisted story onto backlog.md with its in-file title' do
+        with_fixture_repo do |core, root|
+          File.write("#{root}/chores/2_backlog/TST-001-x.md",
+                     "---\nid: TST-001\ntype: chore\nstatus: backlog\n---\n\nTitle: Tidy the README, properly\n")
+          core.heal_backlog!
+          expect(File.read("#{root}/backlog.md")).to eq("- TST-001 Tidy the README, properly\n")
+        end
+      end
+
+      it 'update_story rewrites the backlog line even when the new title keeps the same slug' do
+        with_fixture_repo do |core, root|
+          core.create_story('bug', 'Fix bug', stage: '2_backlog')
+          core.update_story('TST-001', title: 'Fix bug!')
+          expect(Dir.glob("#{root}/bugs/2_backlog/TST-001-fix-bug.md").size).to eq(1)
+          expect(File.read("#{root}/backlog.md")).to eq("- TST-001 Fix bug!\n")
+        end
+      end
+
+      it 'backlog_title_drift names a line whose title is not the story title, with its line number' do
+        with_fixture_repo do |core, root|
+          File.write("#{root}/chores/2_backlog/TST-001-slug.md",
+                     "---\nid: TST-001\ntype: chore\nstatus: backlog\n---\n\nTitle: The real title\n")
+          File.write("#{root}/chores/2_backlog/TST-002-fine.md",
+                     "---\nid: TST-002\ntype: chore\nstatus: backlog\n---\n\nTitle: Fine\n")
+          File.write("#{root}/backlog.md", "# Backlog\n- TST-002 Fine\n- TST-001 slug\n- TST-099 phantom\n")
+          expect(core.backlog_title_drift).to eq([{ id: 'TST-001', listed: 'slug', title: 'The real title',
+                                                    path: "#{root}/chores/2_backlog/TST-001-slug.md", line: 3 }])
+          core.update_story('TST-001', title: 'The real title')
+          expect(core.backlog_title_drift).to eq([])
+        end
+      end
+    end
+
     describe 'backlog self-healing' do
       it 'drops phantom lines and appends unlisted stories on reorder' do
         with_fixture_repo do |core, root|
@@ -1890,7 +1945,7 @@ RSpec.describe BaconTracker::Core do
         expect(s[:icebox]).to eq(1)
         expect(s[:started]).to eq(0)
         expect(s[:done]).to eq(0)
-        expect(s[:next_task]).to eq('alpha')
+        expect(s[:next_task]).to eq('Alpha') # the in-file title, as the backlog line carries it (BT-186)
       end
     end
 

@@ -122,7 +122,7 @@ Move a story from icebox → backlog (committing to do it).
 1. Find the file: `find $TRACKER_ROOT -path "*/1_icebox/${ID}-*"`
 2. `mv` it to the corresponding `2_backlog/` directory
 3. Update `status:` in the frontmatter to `backlog`
-4. Append `- <ID> <title>` to `backlog.md`, where the title is the filename slug with hyphens as spaces (bottom = lowest priority, unless user specifies a position)
+4. Append `- <ID> <title>` to `backlog.md`, where the title is the story's own: its `Title:`/`Feature:` line, or the opening `#` heading of a `.md` without one, or the filename slug with hyphens as spaces when there is neither (bottom = lowest priority, unless user specifies a position)
 5. Confirm new stage
 
 ---

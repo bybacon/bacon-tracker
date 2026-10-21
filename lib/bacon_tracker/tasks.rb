@@ -288,12 +288,13 @@ module BaconTracker
           puts lines.first.strip
         end
 
-        desc 'Check backlog.md against 2_backlog story files for drift, flag duplicate IDs across stages, check blocked_by/linked_to, sizes, templates and .next-id'
+        desc 'Check backlog.md against 2_backlog story files for drift (membership and titles), flag duplicate IDs across stages, check blocked_by/linked_to, sizes, templates and .next-id'
         task :lint do
           listed   = core.backlog_ids
           on_disk  = core.backlog_story_files.filter_map { |f| File.basename(f)[core.filename_id_pattern] }
           phantom  = listed - on_disk
           unlisted = on_disk - listed
+          titles   = core.backlog_title_drift
           dupes    = core.duplicate_id_stages
           drift    = core.status_drift
           max_id   = core.max_story_id
@@ -308,7 +309,7 @@ module BaconTracker
           # Flow signals (rel_warn) are reported but never fail the build: a
           # started story waiting on a blocker is a legitimate state per
           # docs/flow.md, so failing CI on it would train people to ignore lint.
-          broken = !(phantom.empty? && unlisted.empty? && dupes.empty? && drift.empty? && rel_err.empty?) || stale_id
+          broken = !(phantom.empty? && unlisted.empty? && titles.empty? && dupes.empty? && drift.empty? && rel_err.empty?) || stale_id
 
           if !broken && rel_warn.empty? && sizes.empty? && templates.empty?
             puts "Backlog is clean - #{listed.size} stories."
@@ -333,6 +334,12 @@ module BaconTracker
               # so this is the side that appears in the diff.
               add.call("unlisted: #{id} has file in 2_backlog/ but missing from backlog.md",
                        core.backlog_story_files.find { |f| File.basename(f).start_with?(id) } || backlog)
+            end
+            # The estate's CI lint fails on this; reporting it here keeps the
+            # local check and CI in agreement on the same tree (BT-186).
+            titles.each do |t|
+              add.call("title-drift: #{t[:id]} is listed in backlog.md as '#{t[:listed]}' but the story is titled '#{t[:title]}'",
+                       backlog, t[:line])
             end
             dupes.each do |id, paths|
               text = "duplicate: #{id} found in #{paths.map { |p| p.sub("#{core.config.tracker_root}/", '') }.join(' and ')}"

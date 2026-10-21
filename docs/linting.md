@@ -17,6 +17,7 @@ Why each check reports what it does - and why some findings deliberately do not 
 |---|---|---|
 | `phantom` | `backlog.md` lists an ID with no file in a `2_backlog/` directory | Remove the line, or move the story back into `2_backlog/`. Most mutations self-heal this. |
 | `unlisted` | A file sits in `2_backlog/` with no line in `backlog.md` | Add the line - position is priority, so put it where it belongs rather than at the end. |
+| `title-drift` | A `backlog.md` line carries a title other than the story's own (its `Title:`/`Feature:` line, or opening heading) | Retitle through `story:edit` or the board, which rewrites the line, or fix the line by hand. A line a commit wrote with an earlier version carried the filename slug; that is the usual cause. |
 | `duplicate` | The same ID has files in more than one stage directory | Two stages both claim the story. Decide which is true and delete the other; check `git log` for which moved last. |
 | `status-drift` | A story's `status:` disagrees with the directory it is in | The directory wins. Correct the field. |
 | `stale-id` | `.next-id` is not above the highest story on disk | Set it to `highest + 1`. Usually a merge that took the lower value. **Do not** let it reissue an ID. |

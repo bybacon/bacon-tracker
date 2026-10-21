@@ -116,6 +116,30 @@ RSpec.describe BaconTracker::Tasks do
     end
   end
 
+  describe 'BT-186: story:lint title drift' do
+    it 'exits non-zero when a backlog line carries a title other than the story title' do
+      Dir.mktmpdir do |base|
+        root = tracker_root(base, 'proj')
+        FileUtils.mkdir_p("#{root}/chores/2_backlog")
+        File.write("#{root}/chores/2_backlog/PRJ-001-an_external_check.md",
+                   "---\nid: PRJ-001\ntype: chore\nstatus: backlog\n---\n\nTitle: The operator should hear about it\n")
+        File.write("#{root}/backlog.md", "- PRJ-001 an_external_check\n")
+        File.write("#{root}/.next-id", '2')
+        BaconTracker.configure { |c| c.namespace = 'PRJ'; c.tracker_root = root }
+        BaconTracker::Tasks.install
+        err = StringIO.new
+        original = $stderr
+        $stderr = err
+        begin
+          expect { silence_output { Rake::Task['story:lint'].invoke } }.to raise_error(SystemExit)
+        ensure
+          $stderr = original
+        end
+        expect(err.string).to include("title-drift: PRJ-001 is listed in backlog.md as 'an_external_check' but the story is titled 'The operator should hear about it'")
+      end
+    end
+  end
+
   describe 'BT-121: story:lint relationship checks' do
     def chore(root, id, stage, blocked_by: nil)
       FileUtils.mkdir_p("#{root}/chores/#{stage}")
@@ -299,6 +323,21 @@ RSpec.describe BaconTracker::Tasks do
         out = lint_output(root)
         expect(out).to match(%r{^::notice file=features/_template\.feature,line=1::template-header: _template\.feature in features/})
         expect(out).not_to match(/^::error/)
+      end
+    end
+
+    it 'annotates title drift on the backlog.md line (BT-186)' do
+      Dir.mktmpdir do |base|
+        root = tracker_root(base, 'proj')
+        FileUtils.mkdir_p("#{root}/chores/2_backlog")
+        File.write("#{root}/chores/2_backlog/PRJ-001-x.md",
+                   "---\nid: PRJ-001\ntype: chore\nstatus: backlog\n---\n\nTitle: Real\n")
+        File.write("#{root}/backlog.md", "# Backlog\n\n- PRJ-001 x\n")
+        File.write("#{root}/.next-id", '2')
+        ENV['LINT_FORMAT'] = 'github'
+        ENV['GITHUB_WORKSPACE'] = root
+
+        expect(lint_output(root)).to match(/^::error file=backlog\.md,line=3::title-drift: PRJ-001 is listed/)
       end
     end
 
