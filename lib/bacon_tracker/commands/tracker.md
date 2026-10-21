@@ -158,7 +158,7 @@ Update story fields in place. Fields: `title`, `size` (S/M/L), `assignee` (initi
 
 1. Find the file: `find $TRACKER_ROOT -name "${ID}-*"`
 2. Frontmatter fields: update the existing line, or add it if missing - matching the file's format (comment-style for `.feature`, YAML for `.md`). An empty value (`size=`) removes the line.
-3. `title`: re-slugify the new title, `mv` the file to `<ID>-<new-slug>.<ext>` in its current stage directory, and update the story's `backlog.md` line if it has one (keep the `- <ID> <title>` format)
+3. `title`: rewrite the `Title:`/`Feature:` line (or the opening `#` heading of a `.md` that has no `Title:` line), re-slugify the new title, `mv` the file to `<ID>-<new-slug>.<ext>` in its current stage directory, and update the story's `backlog.md` line if it has one (keep the `- <ID> <title>` format)
 4. Reject values containing newlines - the gem treats these as invalid everywhere
 5. Confirm what changed
 
@@ -183,7 +183,7 @@ Display a story's content:
 
 1. `find $TRACKER_ROOT -name "${ID}-*"` to locate the file
 2. Read it, strip the frontmatter block
-3. Print: ID, type, stage, title (the `Title:`/`Feature:` line; humanised from the filename if that line is missing), any set metadata fields, then body
+3. Print: ID, type, stage, title (the `Title:`/`Feature:` line; for a `.md` without one, its opening `#` heading; humanised from the filename if there is neither), any set metadata fields, then body
 
 ```
 APP-003 - implement user auth

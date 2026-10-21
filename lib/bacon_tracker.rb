@@ -418,12 +418,37 @@ module BaconTracker
     # The in-file title: the "Feature:" line of a .feature, the "Title:" line
     # of a .md. The filename slug is ASCII-only, so a humanized slug loses
     # umlauts, dots and case ("Datenschutzerklärung" shows as
-    # "datenschutzerklaerung"); the in-file line is the title as typed. nil when
-    # the line is missing or blank, so callers fall back to the slug.
+    # "datenschutzerklaerung"); the in-file line is the title as typed. A .md
+    # story without a Title: line that opens with a markdown heading takes that
+    # heading, the way decision records do (BT-183) - a third of the stories
+    # across Ingo's projects are written that way. nil when the line is missing
+    # or blank and the story does not open with a heading, so callers fall back
+    # to the slug.
     def story_title(body, ext)
       line  = ext == '.feature' ? /^Feature:[ \t]*(.*)$/ : /^Title:[ \t]*(.*)$/
       title = body[line, 1]&.strip
+      title = body[LEADING_HEADING, 'text']&.strip if (title.nil? || title.empty?) && ext != '.feature'
       title unless title.nil? || title.empty?
+    end
+
+    # A markdown heading (any level) as the first non-blank line of a story
+    # body: the title of a .md story that has no Title: line (BT-183). Only the
+    # opening line counts, so a "## Description" section further down, or a
+    # "# comment" inside a code fence, is never mistaken for the title.
+    LEADING_HEADING = /\A(?<lead>\s*\#{1,6}[ \t]+)(?<text>.+?)(?<tail>[ \t#]*)$/
+
+    # Rewrite the opening heading of a .md story (see LEADING_HEADING) to
+    # `title`, leaving any YAML frontmatter untouched. Content without such a
+    # heading is returned as is.
+    def retitle_leading_heading(content, title)
+      fm, body =
+        if content.start_with?("---\n")
+          close = content.index(/^---\n/, 4)
+          close ? [content[0...(close + 4)], content[(close + 4)..]] : ['', content]
+        else
+          ['', content]
+        end
+      fm + body.sub(LEADING_HEADING) { "#{$~[:lead]}#{title}#{$~[:tail]}" }
     end
 
     # Delegates to set_frontmatter_field: the substitution stays scoped to the
@@ -1964,8 +1989,12 @@ module BaconTracker
       if title
         content = if ext == '.feature'
                     content.sub(/^Feature: .+/) { "Feature: #{title}" }
-                  else
+                  elsif content.match?(/^Title: .+/)
                     content.sub(/^Title: .+/) { "Title: #{title}" }
+                  else
+                    # A story titled by its opening heading (BT-183) is retitled
+                    # in that heading, so the card keeps following the file.
+                    retitle_leading_heading(content, title)
                   end
       end
 
