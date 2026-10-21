@@ -478,10 +478,46 @@ RSpec.describe BaconTracker::Core do
         d = { type: 'bug', ext: '.md', stage: '1_icebox', dir: 'bugs' }
         missing = "#{root}/bugs/1_icebox/TST-001-no-title-line.md"
         blank   = "#{root}/bugs/1_icebox/TST-002-blank-title-line.md"
-        File.write(missing, "---\nid: TST-001\ntype: bug\n---\n\n## Description\n")
+        File.write(missing, "---\nid: TST-001\ntype: bug\n---\n\nJust prose, no title line and no heading.\n")
         File.write(blank, "---\nid: TST-002\ntype: bug\n---\n\nTitle:\n\n## Description\n")
         expect(core.parse_story_file(missing, d)[:title]).to eq('no title line')
         expect(core.parse_story_file(blank, d)[:title]).to eq('blank title line')
+      end
+    end
+
+    it 'takes the first markdown heading as the title when there is no Title: line (BT-183)' do
+      with_fixture_repo do |core, root|
+        d = { type: 'bug', ext: '.md', stage: '1_icebox', dir: 'bugs' }
+        path = "#{root}/bugs/1_icebox/TST-001-fix-the-ae-key-today.md"
+        File.write(path, "---\nid: TST-001\ntype: bug\n---\n\n# Fix the Ä-key — today\n\nSome prose.\n\n## Later heading\n")
+        expect(core.parse_story_file(path, d)[:title]).to eq('Fix the Ä-key — today')
+      end
+    end
+
+    it 'prefers the Title: line, then an opening heading, then the slug, for a .md story' do
+      with_fixture_repo do |core, root|
+        d = { type: 'chore', ext: '.md', stage: '1_icebox', dir: 'chores' }
+        both    = "#{root}/chores/1_icebox/TST-001-both.md"
+        blank   = "#{root}/chores/1_icebox/TST-002-blank-title.md"
+        deep    = "#{root}/chores/1_icebox/TST-003-deep-heading.md"
+        fenced  = "#{root}/chores/1_icebox/TST-004-fenced.md"
+        File.write(both,   "---\nid: TST-001\ntype: chore\n---\n\n# Heading\n\nTitle: From the line\n")
+        File.write(blank,  "---\nid: TST-002\ntype: chore\n---\n\n### Third-level heading ###\n\nTitle:\n")
+        File.write(deep,   "---\nid: TST-003\ntype: chore\n---\n\nIntro paragraph.\n\n## Description\n")
+        File.write(fenced, "---\nid: TST-004\ntype: chore\n---\n\n```sh\n# not a heading\n```\n\n  # indented is not a heading\n")
+        expect(core.parse_story_file(both, d)[:title]).to eq('From the line')
+        expect(core.parse_story_file(blank, d)[:title]).to eq('Third-level heading')
+        expect(core.parse_story_file(deep, d)[:title]).to eq('deep heading')
+        expect(core.parse_story_file(fenced, d)[:title]).to eq('fenced')
+      end
+    end
+
+    it 'leaves a .feature story on the Feature: line or the slug - a # line there is a comment' do
+      with_fixture_repo do |core, root|
+        d = { type: 'feature', ext: '.feature', stage: '1_icebox', dir: 'features' }
+        path = "#{root}/features/1_icebox/TST-001-no-feature-line.feature"
+        File.write(path, "# id: TST-001\n# type: feature\n\n# A gherkin comment\n\n  Scenario: x\n")
+        expect(core.parse_story_file(path, d)[:title]).to eq('no feature line')
       end
     end
 
@@ -739,6 +775,21 @@ RSpec.describe BaconTracker::Core do
         path_before = Dir.glob("#{root}/bugs/1_icebox/TST-001-*.md").first
         core.update_story('TST-001', body: "Repro: open app.\n")
         expect(File.read(path_before)).to include('Repro: open app.')
+      end
+    end
+
+    it 'retitles a heading-titled .md story in its heading, so the card follows (BT-183)' do
+      with_fixture_repo do |core, root|
+        path = "#{root}/bugs/1_icebox/TST-001-old-heading.md"
+        File.write(path, "---\nid: TST-001\ntype: bug\n---\n\n# Old heading\n\nBody.\n\n## Steps\n")
+        core.update_story('TST-001', title: 'New heading')
+        new_path = Dir.glob("#{root}/bugs/1_icebox/TST-001-new-heading.md").first
+        expect(new_path).not_to be_nil
+        content = File.read(new_path)
+        expect(content).to include("# New heading\n")
+        expect(content).not_to include('Old heading')
+        expect(content).to include("## Steps\n")
+        expect(core.all_stories.find { |st| st[:id] == 'TST-001' }[:title]).to eq('New heading')
       end
     end
 

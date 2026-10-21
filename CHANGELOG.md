@@ -3,6 +3,12 @@
 All notable changes to this project will be documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- A bug or chore with no `Title:` line that opens with a markdown heading now takes the heading as its title on the board, the dashboard and the API, the way decision records do. It used to fall back to the humanized filename slug, which loses dashes, punctuation, capitals and umlauts ("# Fix the Ä-key — today" showed as "fix the ae key today"). Retitling such a story rewrites the heading. The slug remains the fallback when there is neither.
+
 ## [1.1.0] - 2026-10-01
 
 ### Changed
