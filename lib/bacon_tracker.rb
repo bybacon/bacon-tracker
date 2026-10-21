@@ -595,8 +595,44 @@ module BaconTracker
       new_path
     end
 
+    # The title a backlog.md line carries: the story's in-file title, the same
+    # one the board shows, so the line and the card never disagree (BT-186).
+    # The humanized slug is what parse_story_file falls back to when the file
+    # has no title line and no opening heading.
+    def backlog_title(path)
+      meta  = story_dirs.find { |d| d[:path] == File.dirname(path) }
+      story = meta && parse_story_file(path, meta)
+      story ? story[:title] : humanize_slug(path)
+    end
+
+    # The title part of a backlog ENTRY line ("- NS-123 title" -> "title"),
+    # nil for a non-entry line. Compared against backlog_title by story:lint.
+    def backlog_line_title(line)
+      m = line.match(/\A\s*-\s+#{id_pattern}[ \t]*(.*?)\s*\z/)
+      m && m[1]
+    end
+
+    # Backlog entry lines whose title is not the story's (BT-186): the same
+    # comparison the estate's CI lint makes, so a tree that passes locally
+    # passes there. Lines without a file are phantoms and reported as such.
+    def backlog_title_drift
+      return [] unless File.exist?(@config.backlog_path)
+
+      on_disk = backlog_story_files.to_h { |f| [File.basename(f)[filename_id_pattern], f] }
+      File.readlines(@config.backlog_path, encoding: 'utf-8').each_with_index.filter_map do |line, i|
+        id = backlog_line_id(line)
+        next unless id && on_disk.key?(id)
+
+        listed = backlog_line_title(line)
+        title  = backlog_title(on_disk[id])
+        next if listed == title
+
+        { id: id, listed: listed, title: title, path: on_disk[id], line: i + 1 }
+      end
+    end
+
     def backlog_add(id, filename)
-      title    = humanize_slug(filename)
+      title    = backlog_title(filename)
       existing = File.exist?(@config.backlog_path) ? File.read(@config.backlog_path, encoding: 'utf-8') : ''
       # Normalize the trailing newline first so a hand-edited backlog.md that
       # doesn't end in one doesn't glue the new entry onto the last line
@@ -622,7 +658,7 @@ module BaconTracker
       lines = File.exist?(@config.backlog_path) ? File.readlines(@config.backlog_path, encoding: 'utf-8') : []
       kept  = lines.select { |l| (id = backlog_line_id(l)).nil? || on_disk.key?(id) }
       listed    = kept.filter_map { |l| backlog_line_id(l) }
-      additions = (on_disk.keys - listed).map { |id| "- #{id} #{humanize_slug(on_disk[id])}\n" }
+      additions = (on_disk.keys - listed).map { |id| "- #{id} #{backlog_title(on_disk[id])}\n" }
       atomic_write(@config.backlog_path, (kept + additions).join) if kept != lines || additions.any?
     end
 
@@ -2099,11 +2135,13 @@ module BaconTracker
         if path != new_path
           FileUtils.mv(path, new_path)
           path = new_path
-          if result[:stage] == '2_backlog' && File.exist?(@config.backlog_path)
-            lines = File.readlines(@config.backlog_path, encoding: 'utf-8')
-            atomic_write(@config.backlog_path,
-                         lines.map { |l| backlog_line_id(l) == id ? "- #{id} #{title}\n" : l }.join)
-          end
+        end
+        # The backlog line follows the title even when the slug, and so the
+        # filename, did not change ("Fix bug" -> "Fix bug!") - BT-186.
+        if title && result[:stage] == '2_backlog' && File.exist?(@config.backlog_path)
+          lines = File.readlines(@config.backlog_path, encoding: 'utf-8')
+          atomic_write(@config.backlog_path,
+                       lines.map { |l| backlog_line_id(l) == id ? "- #{id} #{title}\n" : l }.join)
         end
       end
 
