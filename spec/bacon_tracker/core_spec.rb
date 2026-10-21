@@ -105,9 +105,11 @@ RSpec.describe BaconTracker::Core do
       end
     end
 
-    it 'reports the created ID when a field fails validation' do
+    it 'reports the created ID when a field other than size fails validation' do
       with_fixture_repo do |core, root|
-        expect { core.create('feature', 'Bad Size', size: 'XL') }
+        # size is checked before the ID is consumed (BT-184); the other fields
+        # are still applied after creation, so their failure names the new ID.
+        expect { core.create('feature', 'Bad blocker', blocked_by: 'TST-009') }
           .to raise_error(SystemExit)
           .and output(/Created TST-001 but could not set fields/).to_stderr
         # the story is still created (icebox is cheap) - only the field failed
@@ -311,6 +313,57 @@ RSpec.describe BaconTracker::Core do
         expect { core.create_story('bug', 'Too big', size: 'XL') }
           .to raise_error(ArgumentError, /size must be S, M, or L/)
         expect(Dir.glob("#{root}/bugs/1_icebox/TST-*.md")).to be_empty # no ID burned
+      end
+    end
+
+    it 'create refuses an unknown size before any ID is consumed (BT-184)' do
+      with_fixture_repo do |core, root|
+        err = StringIO.new
+        original = $stderr
+        $stderr = err
+        begin
+          expect { silence_output { core.create('chore', 'Tidy the readme', size: 'XS') } }
+            .to raise_error(SystemExit)
+        ensure
+          $stderr = original
+        end
+        expect(err.string).to include('size must be S, M, or L')
+        expect(err.string).not_to include('Created')
+        expect(Dir.glob("#{root}/chores/1_icebox/TST-*.md")).to be_empty
+        expect(core.next_id_value).to eq(1)
+      end
+    end
+
+    it 'create still sets a known size together with the other fields (BT-184)' do
+      with_fixture_repo do |core, root|
+        silence_output { core.create('chore', 'Tidy the readme', size: 'm', assignee: 'LS') }
+        content = File.read(Dir.glob("#{root}/chores/1_icebox/TST-001-*.md").first)
+        expect(content).to include("size: M\n")
+        expect(content).to include("assignee: LS\n")
+      end
+    end
+
+    it 'keeps the size as written in declared_size and shows none for a size it does not know (BT-184)' do
+      with_fixture_repo do |core, root|
+        d = { type: 'bug', ext: '.md', stage: '1_icebox', dir: 'bugs' }
+        xs = "#{root}/bugs/1_icebox/TST-001-xs.md"
+        lo = "#{root}/bugs/1_icebox/TST-002-lower.md"
+        File.write(xs, "---\nid: TST-001\ntype: bug\nsize: XS\n---\n\nTitle: xs\n")
+        File.write(lo, "---\nid: TST-002\ntype: bug\nsize: m\n---\n\nTitle: lower\n")
+        expect(core.parse_story_file(xs, d).values_at(:size, :declared_size)).to eq([nil, 'XS'])
+        expect(core.parse_story_file(lo, d).values_at(:size, :declared_size)).to eq(['M', 'm'])
+      end
+    end
+
+    it 'unknown_sizes names live stories with a size outside S, M, L and skips done ones (BT-184)' do
+      with_fixture_repo do |core, root|
+        File.write("#{root}/bugs/1_icebox/TST-001-xs.md", "---\nid: TST-001\ntype: bug\nsize: XS\n---\n\nTitle: xs\n")
+        File.write("#{root}/bugs/2_backlog/TST-002-ok.md", "---\nid: TST-002\ntype: bug\nsize: l\n---\n\nTitle: ok\n")
+        File.write("#{root}/bugs/4_done/TST-003-old.md", "---\nid: TST-003\ntype: bug\nsize: XL\n---\n\nTitle: old\n")
+        File.write("#{root}/features/1_icebox/TST-004-f.feature", "# id: TST-004\n# type: feature\n# size: XXL\n\nFeature: f\n")
+        findings = core.unknown_sizes
+        expect(findings.map { |f| f.values_at(:id, :size) }).to eq([['TST-001', 'XS'], ['TST-004', 'XXL']])
+        expect(findings.first[:path]).to end_with('TST-001-xs.md')
       end
     end
 

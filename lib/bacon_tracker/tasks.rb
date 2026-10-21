@@ -288,7 +288,7 @@ module BaconTracker
           puts lines.first.strip
         end
 
-        desc 'Check backlog.md against 2_backlog story files for drift, flag duplicate IDs across stages, check blocked_by/linked_to, and verify .next-id'
+        desc 'Check backlog.md against 2_backlog story files for drift, flag duplicate IDs across stages, check blocked_by/linked_to, sizes and .next-id'
         task :lint do
           listed   = core.backlog_ids
           on_disk  = core.backlog_story_files.filter_map { |f| File.basename(f)[core.filename_id_pattern] }
@@ -302,13 +302,14 @@ module BaconTracker
 
           rel = core.relationship_findings
           rel_warn, rel_err = rel.partition { |f| BaconTracker::Core::RELATIONSHIP_WARNINGS.include?(f[:kind]) }
+          sizes = core.unknown_sizes
 
           # Flow signals (rel_warn) are reported but never fail the build: a
           # started story waiting on a blocker is a legitimate state per
           # docs/flow.md, so failing CI on it would train people to ignore lint.
           broken = !(phantom.empty? && unlisted.empty? && dupes.empty? && drift.empty? && rel_err.empty?) || stale_id
 
-          if !broken && rel_warn.empty?
+          if !broken && rel_warn.empty? && sizes.empty?
             puts "Backlog is clean - #{listed.size} stories."
           else
             # One list, two renderings. Each entry carries the text (identical
@@ -351,6 +352,13 @@ module BaconTracker
                        BaconTracker::Tasks.line_matching(f[:path], /^#?\s*#{field}:/),
                        BaconTracker::Core::RELATIONSHIP_WARNINGS.include?(f[:kind]) ? :notice : :error)
             end
+            # A size the tracker does not know is reported, not failed (BT-184):
+            # the board shows the story without one, and a project is not made
+            # to sweep its old stories to get a green build.
+            sizes.each do |f|
+              add.call("unknown-size: #{f[:id]} says size '#{f[:size]}' - sizes are #{BaconTracker::Core::SIZES.join(', ')}, the board shows none",
+                       f[:path], BaconTracker::Tasks.line_matching(f[:path], /^#?\s*size:/), :notice)
+            end
 
             if ENV['LINT_FORMAT'] == 'github'
               # Duplicates share one text across two files; each still gets its
@@ -360,7 +368,7 @@ module BaconTracker
             else
               findings.uniq { |f| f[:text] }.each { |f| warn "  #{f[:text]}" }
             end
-            puts 'No integrity problems - the note above is a flow signal, not a failure.' if !broken && rel_warn.any?
+            puts 'No integrity problems - the note above does not fail the check.' if !broken && (rel_warn.any? || sizes.any?)
             exit 1 if broken
           end
         end

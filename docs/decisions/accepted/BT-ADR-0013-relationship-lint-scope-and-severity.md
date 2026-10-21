@@ -51,6 +51,9 @@ resolve it either way, so it must not claim the reference is broken.
 `dangling-ref` and `cycle` exit non-zero with the pre-existing findings.
 `blocked-started` is reported and exits clean - `Core::RELATIONSHIP_WARNINGS`
 is the list, and `story:lint` says out loud that the note is not a failure.
+The same rule later took in `unknown-size` (BT-184): a `size:` outside
+`Core::SIZES` is an oversight in an old story, not corruption, so it is
+reported without failing - new values are refused on create and edit instead.
 
 **No auto-fixing.** `backlog.md` self-heals because its membership is derivable
 from `2_backlog/`. A stale `blocked_by` is not derivable - removing it discards

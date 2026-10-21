@@ -72,7 +72,7 @@ story authored by hand in the wrong dialect still parses.
 | `id` | `APP-001` - namespace plus zero-padded number | yes |
 | `type` | `feature` \| `bug` \| `chore` | yes |
 | `status` | `icebox` \| `backlog` \| `started` \| `done` | yes |
-| `size` | `S` \| `M` \| `L` | no |
+| `size` | `S` \| `M` \| `L` - any other value is refused on create and edit; one already in a file shows no size and [lint](linting.md) reports it | no |
 | `assignee` | Initials, e.g. `AB` | no |
 | `blocked_by` | Comma-separated IDs this story waits on | no |
 | `linked_to` | Comma-separated IDs of related stories - a symmetric "see also" | no |

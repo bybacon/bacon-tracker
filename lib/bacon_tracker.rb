@@ -547,7 +547,14 @@ module BaconTracker
       raise
     end
 
-    # Normalize a T-shirt size to S/M/L (upcased), treating nil/"" as "unset"
+    # The T-shirt sizes the tracker knows. The one list behind creating,
+    # editing, showing and linting a story, so no entry point can accept a
+    # size another one hides (BT-184 - XS was refused on edit, created by the
+    # rake task, and shown as nothing by the board).
+    SIZES = %w[S M L].freeze
+    SIZE_RULE = "size must be #{SIZES[0...-1].join(', ')}, or #{SIZES.last}".freeze
+
+    # Normalize a T-shirt size to SIZES (upcased), treating nil/"" as "unset"
     # and raising on anything else - the one rule shared by create_story and
     # update_story so the two entry points can't disagree (BT-101).
     def normalized_size!(size)
@@ -556,9 +563,23 @@ module BaconTracker
       return nil if size.empty?
 
       up = size.upcase
-      raise ArgumentError, 'size must be S, M, or L' unless %w[S M L].include?(up)
+      raise ArgumentError, SIZE_RULE unless SIZES.include?(up)
 
       up
+    end
+
+    # Stories whose size: is not one the tracker knows (BT-184). story:lint
+    # reports them as a notice, not a failure: the value came from a hand edit
+    # or an older tool, the board already shows the story without a size, and
+    # a project is not made to sweep its old stories for a green build. Done
+    # stories are a record and are skipped, as relationship_findings does.
+    def unknown_sizes
+      all_stories.reject { |s| s[:stage] == '4_done' }.sort_by { |s| s[:id] }.filter_map do |s|
+        declared = s[:declared_size]
+        next if declared.nil? || SIZES.include?(declared.upcase)
+
+        { id: s[:id], size: declared, path: s[:path] }
+      end
     end
 
     def move_to_stage(result, new_stage)
@@ -1597,7 +1618,11 @@ module BaconTracker
     # same set the `story:edit` task parses. A field-validation failure is
     # reported against the just-created story so its ID isn't lost.
     def create(kind, title, fields = {})
-      story = create_story(kind, title)
+      fields = fields.dup
+      # The size goes through create_story, which validates it before an ID is
+      # consumed (BT-184): a refused size leaves no unsized story behind. The
+      # remaining fields are set afterwards, as before.
+      story = create_story(kind, title, size: fields.delete(:size))
       path  =
         if fields.empty?
           story[:path]
@@ -1694,8 +1719,11 @@ module BaconTracker
           [{}, content]
         end
 
-      raw_size = fm['size']&.to_s&.upcase
-      size = %w[S M L].include?(raw_size) ? raw_size : nil
+      # declared_size is the value as written; size is nil unless it is one
+      # the tracker knows, and story:lint reports the difference (BT-184).
+      declared_size = fm['size']&.to_s&.strip
+      declared_size = nil if declared_size&.empty?
+      size = declared_size && SIZES.include?(declared_size.upcase) ? declared_size.upcase : nil
 
       blocked_by = decision_refs(fm['blocked_by'])
       linked_to  = decision_refs(fm['linked_to'])
@@ -1712,7 +1740,7 @@ module BaconTracker
         # Body-line addresses of the subtasks - the client renders/toggles by
         # these instead of re-deriving fence rules (the BT-049 drift class).
         subtask_lines: st_lines.empty? ? nil : st_lines,
-        declared_status: fm['status']&.to_s }
+        declared_status: fm['status']&.to_s, declared_size: declared_size }
     end
 
     # Indices of body lines that are subtasks, skipping fenced content

@@ -7,6 +7,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), [Semantic Vers
 
 ### Fixed
 
+- `rake story:feature|bug|chore` with an unknown `size=` (say `XS`) is refused before a story is created, like the API and the board already were. It used to create the story, spend its number, and only then report "could not set fields", leaving an unsized story behind. One list of sizes (`S`, `M`, `L`) now backs creating, editing, showing and linting.
+- `rake story:lint` reports a story whose file carries a size the tracker does not know (`unknown-size`), naming the story and its `size:` line. It is a notice, not a failure: the board shows such a story without a size, and old files are not made to be swept. With `LINT_FORMAT=github` it is a `::notice` annotation.
 - A bug or chore with no `Title:` line that opens with a markdown heading now takes the heading as its title on the board, the dashboard and the API, the way decision records do. It used to fall back to the humanized filename slug, which loses dashes, punctuation, capitals and umlauts ("# Fix the Ä-key — today" showed as "fix the ae key today"). Retitling such a story rewrites the heading. The slug remains the fallback when there is neither.
 
 ## [1.1.0] - 2026-10-01
