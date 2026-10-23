@@ -1172,8 +1172,15 @@ module BaconTracker
       }
     end
 
+    # No syntax highlighter: kramdown defaults to Rouge and requires it on the
+    # first fenced code block if it happens to be installed. Rouge activates
+    # the strscan gem over the already-loaded default one, two StringScanner
+    # types then live in the process, and every parse after that raises - the
+    # whole docs surface goes dark until a restart. Plain <pre><code> is all
+    # the page styles anyway.
     def render_markdown(text)
-      doc = Kramdown::Document.new(gfm_table_compat(text), input: 'GFM', hard_wrap: false)
+      doc = Kramdown::Document.new(gfm_table_compat(text), input: 'GFM', hard_wrap: false,
+                                                            syntax_highlighter: nil)
       sanitize_tree!(doc.root)
       doc.to_html
     end

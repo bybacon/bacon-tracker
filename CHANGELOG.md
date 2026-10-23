@@ -3,6 +3,13 @@
 All notable changes to this project will be documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), [Semantic Versioning](https://semver.org/).
 
+
+## [1.1.2] - 2026-10-23
+
+### Fixed
+
+- Docs pages and decision records no longer all show "could not load" after the first page with a fenced code block. kramdown required Rouge to highlight the block whenever Rouge was installed, and Rouge loaded a second copy of `strscan`, which broke every markdown render after it until the server restarted. Code blocks are now rendered plain, without a syntax highlighter, which is how the page already showed them.
+
 ## [1.1.1] - 2026-10-21
 
 ### Fixed
