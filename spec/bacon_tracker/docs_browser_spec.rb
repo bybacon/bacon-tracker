@@ -91,6 +91,16 @@ RSpec.describe 'docs browser (BT-139)' do
       end
     end
 
+    it 'renders fenced code plain, never through a syntax highlighter' do
+      docs_core do |core, docs|
+        File.write(File.join(docs, 'guides', 'code.md'), "# Code\n\n```ruby\nputs 1\n```\n")
+        expect(Kramdown::Document).to receive(:new)
+          .with(anything, hash_including(syntax_highlighter: nil)).and_call_original
+        html = core.render_page('guides/code.md')[:html]
+        expect(html).to include('<pre><code class="language-ruby">puts 1')
+      end
+    end
+
     it 'keeps txt plain - escaped, not parsed' do
       docs_core do |core, docs|
         File.write(File.join(docs, 'notes.txt'), "# not a heading <b>\n")
