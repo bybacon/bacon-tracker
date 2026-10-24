@@ -81,14 +81,39 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      # The entry's opening paragraph, when it has one, is its summary, and
+      # the summary's first sentence titles the release. A footer adds the
+      # upgrade command and the diff since the previous tag.
       - name: Release notes from the changelog
+        id: notes
         run: |
           awk -v v="${{ needs.verify.outputs.version }}" '
             index($0, "## [" v "]") == 1 { on = 1; next }
             on && /^## \[/ { exit }
             on { print }
           ' CHANGELOG.md > notes.md
+          summary=$(awk 'NF { print; exit }' notes.md)
+          case "$summary" in
+            ''|'#'*|'-'*) title="$GITHUB_REF_NAME" ;;
+            *) title="$GITHUB_REF_NAME - $(printf '%s' "$summary" | sed -E 's/\. .*//; s/\.$//')" ;;
+          esac
+          echo "title=$title" >> "$GITHUB_OUTPUT"
+          prev=$(git describe --tags --abbrev=0 "$GITHUB_REF_NAME^" 2>/dev/null || true)
+          {
+            echo
+            echo '---'
+            echo
+            # shellcheck disable=SC2016 # literal backticks for markdown
+            echo '- Upgrade: `gem update bacon-tracker`'
+            if [ -n "$prev" ]; then
+              echo "- Full diff: https://github.com/$GITHUB_REPOSITORY/compare/$prev...$GITHUB_REF_NAME"
+            fi
+            echo "- Changelog: https://github.com/$GITHUB_REPOSITORY/blob/main/CHANGELOG.md"
+          } >> notes.md
       - name: Create the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" --verify-tag --title "$GITHUB_REF_NAME" --notes-file notes.md
+          TITLE: ${{ steps.notes.outputs.title }}
+        run: gh release create "$GITHUB_REF_NAME" --verify-tag --title "$TITLE" --notes-file notes.md
