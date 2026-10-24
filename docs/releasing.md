@@ -9,7 +9,12 @@ Pushing a `v*` tag runs the publish workflow (`.github/workflows/publish.yml`). 
 - the tag matches `BaconTracker::VERSION`,
 - `CHANGELOG.md` has a dated entry for that version: `## [1.2.3] - YYYY-MM-DD`.
 
-The release notes are that changelog entry. The workflow never runs on a fork.
+The release notes are that changelog entry, with a footer that adds the upgrade command and links to the diff since the previous tag and to the changelog. The workflow never runs on a fork.
+
+Write the entry for someone skimming the release, not for the next maintainer:
+
+- **Open with a one- or two-sentence summary** under the version line: what changed, and who should upgrade. Its first sentence becomes the release title (`v1.1.2 - Docs pages load again`), so keep that sentence short. Without a summary the title is just the tag.
+- **Lead every bullet with a bold sentence** that says what the user sees now. The detail - the old behaviour, the cause, the edge cases - follows in plain text.
 
 ## One-time setup
 
@@ -20,7 +25,7 @@ The release notes are that changelog entry. The workflow never runs on a fork.
 
 - [ ] All specs pass: `bundle exec rspec` and `node --test spec/js/*.test.js`
 - [ ] Version bumped: `bundle exec rake version:patch` (or `version:minor` / `version:major`), which updates `lib/bacon_tracker/version.rb`
-- [ ] `CHANGELOG.md` entry dated: `## [<version>] - <today>`
+- [ ] `CHANGELOG.md` entry dated (`## [<version>] - <today>`), with a summary and bold-led bullets
 - [ ] Changes committed and merged to `main`
 
 ## Release

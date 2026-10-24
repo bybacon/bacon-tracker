@@ -1,7 +1,7 @@
 # bacon-tracker
 
 [![Specs](https://github.com/bybacon/bacon-tracker/actions/workflows/specs.yml/badge.svg)](https://github.com/bybacon/bacon-tracker/actions/workflows/specs.yml)
-[![Gem Version](https://badge.fury.io/rb/bacon-tracker.svg)](https://rubygems.org/gems/bacon-tracker)
+[![Gem Version](https://img.shields.io/gem/v/bacon-tracker)](https://rubygems.org/gems/bacon-tracker)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/bybacon/bacon-tracker/blob/main/LICENSE)
 
 A Ruby gem for managing XP-style stories, bugs, and chores as plain Markdown and Gherkin files in a git repo, with a local tracker board.
