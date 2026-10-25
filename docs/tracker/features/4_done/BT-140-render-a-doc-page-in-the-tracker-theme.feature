@@ -11,7 +11,7 @@ Feature: Render a doc page in the tracker theme
   Scenario: Pages share the board's look
     Given a doc page with headings, a table and a code block
     When Ingo previews it
-    Then it uses the board's colours and type
+    Then it uses the board's colors and type
     And it follows the light or dark theme currently chosen
 
   Scenario: Relative links open inside the browser

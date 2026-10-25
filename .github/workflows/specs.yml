@@ -18,7 +18,41 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # A change that touches only site/ (the landing page) skips the steps below.
+  # The jobs still run and report under their own names, because main's
+  # ruleset requires them and a job that never starts would block the merge.
+  # Release runs (tags) always run everything.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: diff
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          code=true
+          case "$EVENT:$GITHUB_REF" in
+            *:refs/tags/*) range= ;;
+            pull_request:*) range="origin/$BASE_REF...HEAD" ;;
+            push:*) case "$BEFORE" in *[!0]*) range="$BEFORE..$GITHUB_SHA" ;; *) range= ;; esac ;;
+            *) range= ;;
+          esac
+          if [ -n "$range" ] && files=$(git diff --name-only "$range") && [ -n "$files" ] &&
+             ! printf '%s\n' "$files" | grep -qv '^site/'; then
+            code=false
+          fi
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "Code changed: $code"
+
   spec:
+    needs: changes
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
@@ -28,39 +62,51 @@ jobs:
         ruby: ["3.3", "3.4", "4.0"]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: needs.changes.outputs.code == 'true'
       - uses: ruby/setup-ruby@824c0e29fdfc7d689c191c27acc969d2d04b7dd8 # v1.331.0
+        if: needs.changes.outputs.code == 'true'
         with:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
       - run: bundle exec rspec
+        if: needs.changes.outputs.code == 'true'
 
   tracker:
+    needs: changes
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: needs.changes.outputs.code == 'true'
       - uses: ruby/setup-ruby@824c0e29fdfc7d689c191c27acc969d2d04b7dd8 # v1.331.0
+        if: needs.changes.outputs.code == 'true'
         with:
           ruby-version: "3.4"
           bundler-cache: true
       # The project's own stories, in docs/tracker. Findings annotate the diff.
       - name: Lint the stories
+        if: needs.changes.outputs.code == 'true'
         run: bundle exec rake story:lint
         env:
           LINT_FORMAT: github
       - name: Lint the decision records
+        if: needs.changes.outputs.code == 'true'
         run: bundle exec rake decision:lint
 
   package:
+    needs: changes
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: needs.changes.outputs.code == 'true'
       - uses: ruby/setup-ruby@824c0e29fdfc7d689c191c27acc969d2d04b7dd8 # v1.331.0
+        if: needs.changes.outputs.code == 'true'
         with:
           ruby-version: "3.4"
       # Catches gemspec problems in review instead of at release time.
       - name: Build the gem without warnings
+        if: needs.changes.outputs.code == 'true'
         run: |
           gem build bacon-tracker.gemspec 2>&1 | tee build.log
           if grep -q "WARNING" build.log; then
@@ -69,14 +115,19 @@ jobs:
           fi
 
   js:
+    needs: changes
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: needs.changes.outputs.code == 'true'
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: needs.changes.outputs.code == 'true'
         with:
           node-version: "24"
       - name: Syntax-check client assets
+        if: needs.changes.outputs.code == 'true'
         run: for f in lib/bacon_tracker/assets/*.js; do node --check "$f"; done
       - name: JS unit tests
+        if: needs.changes.outputs.code == 'true'
         run: node --test spec/js/*.test.js

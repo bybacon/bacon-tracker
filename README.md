@@ -6,7 +6,8 @@
 
 A Ruby gem for managing XP-style stories, bugs, and chores as plain Markdown and Gherkin files in a git repo, with a local tracker board.
 
-![The bacon-tracker board](https://raw.githubusercontent.com/bybacon/bacon-tracker/main/docs/images/board.png)
+![The bacon-tracker board](https://raw.githubusercontent.com/bybacon/bacon-tracker/main/docs/images/board.png#gh-light-mode-only)
+![The bacon-tracker board](https://raw.githubusercontent.com/bybacon/bacon-tracker/main/docs/images/board-dark.png#gh-dark-mode-only)
 
 > The local drag-and-drop tracker board, served at `http://localhost:4567`. Want to poke at it right now? Boot the bundled [demo tracker](https://github.com/bybacon/bacon-tracker/tree/main/examples/demo/): `cd examples/demo && rake story:server`.
 

@@ -76,7 +76,7 @@ file.
 - A relationship recorded on a done story is never revisited. Accepted: the
   record is the point, and `4_done` is not edited.
 - `blocked-started` can be ignored indefinitely without going red. Accepted -
-  the board already colours over-commitment, and CI is the wrong place to
+  the board already colors over-commitment, and CI is the wrong place to
   enforce a working agreement.
 - A stale `blocked_by` still needs a human to clear it. The check names the
   story, the field and the line, so the fix is one edit.
