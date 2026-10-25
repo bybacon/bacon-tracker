@@ -149,7 +149,7 @@ RSpec.describe BaconTracker::Core do
     end
 
     it 'raises on an unknown field' do
-      expect { core.edit_assignments(['colour=blue']) }
+      expect { core.edit_assignments(['color=blue']) }
         .to raise_error(ArgumentError, /Unknown field/)
     end
 

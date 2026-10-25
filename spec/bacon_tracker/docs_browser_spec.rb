@@ -170,7 +170,7 @@ RSpec.describe 'docs browser (BT-139)' do
         expect(body).to include('[data-theme="dark"] .card')
         expect(body).to include('[data-theme="dark"] header')
         # the detail head states the status directory the record lives in,
-        # coloured like its column (BT-178)
+        # colored like its column (BT-178)
         expect(body).to include('id="doc-detail-status"')
         expect(body).to include('.detail-stage[data-status="accepted"]')
 

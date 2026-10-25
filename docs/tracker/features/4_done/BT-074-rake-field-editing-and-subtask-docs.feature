@@ -26,7 +26,7 @@ Feature: Set story fields from the rake CLI and document subtasks
     Then APP-001 has no size
 
   Scenario: An unknown field is refused
-    When Jean runs rake "story:edit[APP-001,colour=blue]"
+    When Jean runs rake "story:edit[APP-001,color=blue]"
     Then the command fails and lists the fields that can be edited
     And the story is unchanged
 

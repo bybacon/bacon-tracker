@@ -66,7 +66,7 @@ Then walk this checklist:
 **Load & layout**
 - [ ] Four columns render (Icebox / Backlog / Started / Done) with the demo's cards in each.
 - [ ] The "next" bar shows the top backlog story.
-- [ ] Card badges render: type colour, id, size, `done/total` subtask progress, ⛔ blocked-by, ⛔ blocks (amber, derived), 🔗 linked, assignee.
+- [ ] Card badges render: type color, id, size, `done/total` subtask progress, ⛔ blocked-by, ⛔ blocks (amber, derived), 🔗 linked, assignee.
 - [ ] A relationship badge that points at a story on the board is clickable and flashes/jumps to it; one pointing at a missing id is greyed with a "(not found)" tooltip.
 - [ ] Loading `/#DEMO-004` scrolls to that story and flashes it.
 

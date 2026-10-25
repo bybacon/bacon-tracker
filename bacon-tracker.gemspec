@@ -8,7 +8,7 @@ Gem::Specification.new do |s|
                     "driven from Rake, a local web board, or Claude Code. No database, no service."
   s.authors       = ["Alex Berger"]
   s.email         = ["alex@aberger.me"]
-  s.homepage      = "https://github.com/bybacon/bacon-tracker"
+  s.homepage      = "https://tracker.bybacon.com"
   s.files         = Dir["lib/**/*.{rb,md,js,erb}"] + Dir["bin/*"] +
                     ["LICENSE", "README.md", "CHANGELOG.md"]
   s.executables   = ["tracker-dashboard", "tracker-init"]
@@ -19,6 +19,8 @@ Gem::Specification.new do |s|
 
   s.metadata = {
     "homepage_uri"          => s.homepage,
+    "source_code_uri"       => "https://github.com/bybacon/bacon-tracker/tree/main",
+    "documentation_uri"     => "https://github.com/bybacon/bacon-tracker/tree/main/docs",
     "changelog_uri"         => "https://github.com/bybacon/bacon-tracker/blob/main/CHANGELOG.md",
     "bug_tracker_uri"       => "https://github.com/bybacon/bacon-tracker/issues",
     "rubygems_mfa_required" => "true"

@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script>(function(){try{var t=localStorage.getItem('bt-theme');if(t)document.documentElement.dataset.theme=t;}catch(e){}}());</script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>bacon-tracker · a project tracker that lives in your git repo</title>
+  <meta name="description" content="Track stories, bugs and chores as Markdown and Gherkin files in your git repo, with a local board, Rake tasks and Claude Code. No database, no service.">
+  <meta name="theme-color" content="#FFE3F0" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1C1218" media="(prefers-color-scheme: dark)">
+  <link rel="canonical" href="https://tracker.bybacon.com/">
+  <link rel="icon" href="assets/carrot.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="bacon-tracker">
+  <meta property="og:url" content="https://tracker.bybacon.com/">
+  <meta property="og:title" content="bacon-tracker · your plan, next to your code">
+  <meta property="og:description" content="A project tracker that lives in your git repo as plain Markdown files, with a local drag-and-drop board. No database, no service.">
+  <meta property="og:image" content="https://tracker.bybacon.com/assets/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="bacon-tracker: your plan, next to your code. The tracker board with icebox, backlog, started and done columns.">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "bacon-tracker",
+    "url": "https://tracker.bybacon.com/",
+    "description": "A project tracker that keeps stories, bugs, chores and decision records as Markdown and Gherkin files in your git repo, with a local drag-and-drop board, Rake tasks and a Claude Code command.",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "macOS, Linux, Windows",
+    "softwareRequirements": "Ruby 3.3 or later",
+    "license": "https://opensource.org/licenses/MIT",
+    "image": "https://tracker.bybacon.com/assets/og.png",
+    "screenshot": "https://tracker.bybacon.com/images/board.png",
+    "downloadUrl": "https://rubygems.org/gems/bacon-tracker",
+    "sameAs": [
+      "https://github.com/bybacon/bacon-tracker",
+      "https://rubygems.org/gems/bacon-tracker"
+    ],
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "author": { "@type": "Organization", "name": "bacon", "url": "https://roll.bybacon.com/" }
+  }
+  </script>
+
+  <link rel="preload" href="assets/fonts/SourceCodePro-Regular.otf.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="style.css">
+  <script defer src="https://stats.rechenzentrum.app/script.js" data-website-id="30eb6535-9226-4bae-ad33-f78d1fed3191"></script>
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="wrapper header-row">
+      <a class="site-title" href="./"><img src="assets/carrot.svg" alt="" class="site-logo"> bacon-tracker</a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="#quickstart">quickstart</a>
+        <a href="https://github.com/bybacon/bacon-tracker#readme">docs</a>
+        <a href="https://github.com/bybacon/bacon-tracker">github</a>
+        <button class="theme-toggle" id="theme-toggle" type="button" aria-label="toggle dark mode">◐</button>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero wrapper">
+      <h1>Your plan, next to your code.</h1>
+      <p class="lede">
+        bacon-tracker is a project tracker that lives in your git repo. Your stories, bugs, chores and decision records
+        are Markdown and Gherkin files, with a drag-and-drop board on top that runs on your machine. No database. No third-party service. Just files.
+      </p>
+
+      <div class="install">
+        <code id="install-cmd"><span class="prompt" aria-hidden="true">$ </span>gem install bacon-tracker</code>
+        <button type="button" class="copy" data-copy="install-cmd" aria-label="copy install command">copy</button>
+      </div>
+      <p class="meta">MIT licensed · Ruby &ge; 3.3 · <a href="https://rubygems.org/gems/bacon-tracker">rubygems</a> · <a href="https://github.com/bybacon/bacon-tracker/blob/main/CHANGELOG.md">changelog</a></p>
+    </section>
+
+    <figure class="shot wrapper wide">
+      <img class="shot-light" src="images/board.png" width="1440" height="600"
+           alt="The bacon-tracker board: four columns, Icebox, Backlog, Started and Done, with story cards in each">
+      <img class="shot-dark" src="images/board-dark.png" width="1440" height="600"
+           alt="The bacon-tracker board in dark mode: four columns, Icebox, Backlog, Started and Done, with story cards in each">
+      <figcaption>Your board at <code>localhost:4567</code>. Drag a card and its story file moves with it.</figcaption>
+    </figure>
+
+    <section class="wrapper">
+      <h2>Four stages, four directories</h2>
+      <p>
+        Your work moves through <strong>icebox → backlog → started → done</strong>. Each stage is a directory, so the folder a story's file sits in is its stage.
+        Your backlog is a text file in priority order, and finished stories stay in done for good.
+      </p>
+
+      <div class="flow" role="list">
+        <div class="stage" role="listitem"><span class="dir">1_icebox/</span><span>what you might do</span></div>
+        <div class="verb" aria-hidden="true">commit →</div>
+        <div class="stage" role="listitem"><span class="dir">2_backlog/</span><span>what you'll do next</span></div>
+        <div class="verb" aria-hidden="true">start →</div>
+        <div class="stage" role="listitem"><span class="dir">3_started/</span><span>what you're on now</span></div>
+        <div class="verb" aria-hidden="true">done →</div>
+        <div class="stage" role="listitem"><span class="dir">4_done/</span><span>what you shipped</span></div>
+      </div>
+
+      <p class="note">
+        No sprints, no releases, no finish lines. It's made for ongoing product work, where you ship continuously.
+        The way of working behind it is written up as <a href="https://github.com/bybacon/bacon-tracker/blob/main/docs/flow.md">the bacon flow</a>.
+      </p>
+    </section>
+
+    <section class="wrapper">
+      <h2>Why a tracker in your repo</h2>
+      <div class="cards">
+        <article class="card">
+          <h3>Your plan and your code share one history</h3>
+          <p>
+            A story, the change that delivers it, and the decision behind it land in the same pull request, and you review them together.
+            Run <code>git log</code> on a story file and you see every move it made. Months later, you can still tell what you decided, when, and why.
+          </p>
+        </article>
+        <article class="card">
+          <h3>Your agent just uses it</h3>
+          <p>
+            A coding agent reads and edits your stories the way it reads and edits your code: as files.
+            No MCP server to run, no tool definitions eating its context, no API token to rotate.
+            It picks up a story, works it, and moves it to done in the same diff you review.
+          </p>
+        </article>
+        <article class="card">
+          <h3>It stays yours</h3>
+          <p>
+            Your plan never leaves your repository. It lives under your access rules and your backups, and goes wherever your repo goes.
+            No seats, no plan tiers, no subscription.
+          </p>
+        </article>
+      </div>
+      <p class="note">
+        Side note: the repo is the sweet spot, not a requirement. Your tracker is just a folder, so it also works
+        in a repo of its own or in a plain directory with no git at all.
+      </p>
+    </section>
+
+    <section class="wrapper">
+      <h2>Work from wherever you are</h2>
+      <p>The terminal, the board, Claude Code and your editor all change the same files, so you can switch between them whenever you like.</p>
+      <dl class="interfaces">
+        <div>
+          <dt>Rake</dt>
+          <dd>Create, commit, start, finish, edit and lint stories from your terminal. <code>rake "story:start[APP-007]"</code></dd>
+        </div>
+        <div>
+          <dt>The board</dt>
+          <dd>Drag cards between stages, reorder your backlog, tick off subtasks, and browse your docs and decisions. It runs on your computer, and nobody else can reach it.</dd>
+        </div>
+        <div>
+          <dt>Claude Code</dt>
+          <dd>Tell Claude what you want with the <code>/tracker</code> command, in your own words: <code>/tracker new bug crash on empty cart</code>, <code>/tracker next</code>.</dd>
+        </div>
+        <div>
+          <dt>Your editor</dt>
+          <dd>Stories are Markdown, features are Gherkin. Open them, change them, commit them.</dd>
+        </div>
+        <div>
+          <dt>Menu bar</dt>
+          <dd>On macOS, <a href="https://github.com/bybacon/bacon-tracker-menu">BaconTrackerMenu</a> starts the board for you and keeps every project one click away.</dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="wrapper" id="quickstart">
+      <h2>Your first story on a board in five minutes</h2>
+      <div class="code">
+        <button type="button" class="copy" data-copy="quickstart-cmd" aria-label="copy quickstart commands">copy</button>
+<pre><code id="quickstart-cmd">gem install bacon-tracker
+
+tracker-init --path ./my-app --namespace APP --title 'My App' --yes
+
+NS=APP rake "story:feature[My first story]"   <span class="c"># APP-001 in the icebox</span>
+NS=APP rake "story:commit[APP-001]"           <span class="c"># icebox → backlog</span>
+
+tracker-dashboard --dashboard dashboard.md    <span class="c"># open localhost:4567</span></code></pre>
+      </div>
+      <p class="note">
+        Then run <code>git diff</code>: everything you just did shows up as an ordinary change.
+        The <a href="https://github.com/bybacon/bacon-tracker#quickstart">README</a> covers the two setup modes, the story format, linting in CI and the HTTP API.
+        Want to look around first? The repo comes with a <a href="https://github.com/bybacon/bacon-tracker/tree/main/examples/demo">demo tracker</a> you can run.
+      </p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrapper footer-row">
+      <p>bacon-tracker is made by bacon, a small software studio. MIT licensed.</p>
+      <p>
+        <a href="https://github.com/bybacon/bacon-tracker">github</a> ·
+        <a href="https://rubygems.org/gems/bacon-tracker">rubygems</a> ·
+        <a href="https://roll.bybacon.com/">the bacon roll</a> ·
+        <a href="https://roll.bybacon.com/imprint/">imprint</a>
+      </p>
+      <p class="small">No cookies.</p>
+    </div>
+  </footer>
+
+  <script>
+  (function () {
+    var html = document.documentElement;
+    var btn = document.getElementById('theme-toggle');
+    var media = window.matchMedia('(prefers-color-scheme: dark)');
+    function current() { return html.dataset.theme || (media.matches ? 'dark' : 'light'); }
+    function paint() { btn.textContent = current() === 'dark' ? '◑' : '◐'; }
+    btn.addEventListener('click', function () {
+      var next = current() === 'dark' ? 'light' : 'dark';
+      try {
+        if ((next === 'dark') === media.matches) {
+          delete html.dataset.theme;
+          localStorage.removeItem('bt-theme');
+        } else {
+          html.dataset.theme = next;
+          localStorage.setItem('bt-theme', next);
+        }
+      } catch (e) { html.dataset.theme = next; }
+      paint();
+    });
+    media.addEventListener('change', paint);
+    paint();
+
+    document.querySelectorAll('.copy').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var text = document.getElementById(b.dataset.copy).textContent.replace(/^\$ /, '');
+        navigator.clipboard.writeText(text).then(function () {
+          b.textContent = 'copied';
+          setTimeout(function () { b.textContent = 'copy'; }, 1500);
+        });
+      });
+    });
+  }());
+  </script>
+</body>
+</html>
